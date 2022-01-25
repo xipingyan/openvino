@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <atomic>
 
 #include "ie_remote_context.hpp"
 
@@ -14,6 +15,11 @@
 #include "cpp_interfaces/interface/ie_iinfer_request_internal.hpp"
 
 namespace InferenceEngine {
+
+std::atomic<size_t> g_sleep_tm_cpu(0);
+void set_sleep_time(const size_t& sleep_tm) {
+    g_sleep_tm_cpu = sleep_tm;
+}
 
 #define INFER_REQ_CALL_STATEMENT(...)                                                              \
     if (_impl == nullptr) IE_THROW(NotAllocated) << "Inference Request is not initialized";        \
