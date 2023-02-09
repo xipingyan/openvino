@@ -1589,9 +1589,90 @@ void Graph::EnforceBF16() {
         searchForNodesToSkip(node, nodesToSkip);
     }
 
+    // My added code for test accuracy drop for bf16.
+    // Start: =========================================================
+    SortTopologically();
+
+    const auto topDownbf16Env = std::getenv("BF16_TOP_DOWN_NUM");
+    const auto topDownfp32Env = std::getenv("FP32_TOP_DOWN_NUM");
+    const auto enforceFp32Env = std::getenv("ENFORCE_FP32_NODES");
+
+#define print_env(env)                                    \
+    if (env) {                                            \
+        std::cout << #env << " is :" << env << std::endl; \
+    }
+    print_env(topDownbf16Env);
+    print_env(topDownfp32Env);
+    print_env(enforceFp32Env);
+
+    std::vector<std::string> fp32NameVec{};
+    auto getFp32NodeList = [&fp32NameVec](std::string fp32NodesEnv, const std::string delimiter) {
+        size_t pos = 0;
+        std::string token;
+        while ((pos = fp32NodesEnv.find(delimiter)) != std::string::npos) {
+            token = fp32NodesEnv.substr(0, pos);
+            fp32NameVec.push_back(token);
+            fp32NodesEnv.erase(0, pos + delimiter.length());
+        }
+        if (!fp32NodesEnv.empty())
+            fp32NameVec.push_back(fp32NodesEnv);
+    };
+    if (topDownbf16Env && topDownfp32Env)
+        IE_THROW() << "Conflict when setting BF16/FP32_TOP_DOWN_NUM";
+    size_t topDownnum;
+    if (topDownbf16Env || topDownfp32Env) {
+        std::stringstream sstream(topDownbf16Env ? topDownbf16Env : topDownfp32Env);
+        sstream >> topDownnum;
+    }
+    std::cout << "topDownnum = " << topDownnum << std::endl;
+
+    size_t computiveNodeIdx = 0;
+    size_t computiveNodeSum = 0;
+    auto isComputiveNode = [](const NodePtr nodePtr) -> bool {
+        if (nodePtr->getType() == Type::Convolution || nodePtr->getType() == Type::FullyConnected ||
+            nodePtr->getType() == Type::MatMul || nodePtr->getType() == Type::RNNCell ||
+            nodePtr->getType() == Type::RNNSeq)
+            return true;
+        return false;
+    };
+    // End: =========================================================
+
     for (const auto& node : graphNodes) {
         if (nodesToSkip.count(node) && !node->enforceBF16evenForGraphTail)
             continue;
+        // Start: =========================================================
+        if (isComputiveNode(node)) {
+            computiveNodeSum++;
+            computiveNodeIdx++;
+        }
+        // std::cout << "computiveNodeIdx = " << computiveNodeIdx << std::endl;
+        // std::cout << " isComputiveNode(node) = " << isComputiveNode(node) << std::endl;
+        // std::cout << " topDownbf16Env = " << topDownbf16Env << std::endl;
+        // std::cout << " (computiveNodeIdx + 1 > topDownnum) = " << (computiveNodeIdx + 1 > topDownnum) << std::endl;
+
+        if (isComputiveNode(node) && topDownbf16Env && (computiveNodeIdx + 1 > topDownnum)) {
+            // std::cout << " continued." << std::endl;
+            continue;
+        }
+        if (isComputiveNode(node) && topDownfp32Env && (computiveNodeIdx + 1 <= topDownnum)) {
+            continue;
+        }
+
+        if (enforceFp32Env) {
+            getFp32NodeList(enforceFp32Env, ",");
+            bool enforceFP32 = false;
+            for (const auto& nodeName : fp32NameVec) {
+                if (nodeName == node->getName()) {
+                    enforceFP32 = true;
+                    break;
+                }
+            }
+            if (enforceFP32) {
+                std::cout << " ####Enforce fp32 node:" << node->getName() << std::endl;
+                continue;
+            }
+        }
+        // End: =========================================================
 
         if (node->getType() != Type::Input && node->getType() != Type::Output) {
             for (size_t i = 0; i < node->getOriginalInputsNumber(); i++) {
@@ -1604,8 +1685,10 @@ void Graph::EnforceBF16() {
                       node->getType() != Type::Concatenation) &&
                     // exclude Eltwise after Input since it supports conversion to BF16
                     !(parent->getType() == Type::Input && node->getType() == Type::Eltwise) &&
-                    node->getOriginalInputPrecisionAtPort(i) == Precision::FP32)
-                    node->setOriginalInputPrecisionAtPort(i, Precision::BF16);
+                    node->getOriginalInputPrecisionAtPort(i) == Precision::FP32) {
+                        node->setOriginalInputPrecisionAtPort(i, Precision::BF16);
+                        // std::cout << " -Node: " << computiveNodeIdx << " " << node->name << " is set to bf16" << std::endl;
+                    }
             }
 
             for (size_t i = 0; i < node->getOriginalOutputsNumber(); i++) {
@@ -1614,6 +1697,7 @@ void Graph::EnforceBF16() {
             }
         }
     }
+    std::cout << "computiveNodeSum = " << computiveNodeSum << ", computiveNodeIdx = " << computiveNodeIdx << std::endl;
 }
 
 void Graph::setMinSparseRate(float minSparseRate) {
