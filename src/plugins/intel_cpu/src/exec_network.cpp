@@ -29,6 +29,7 @@
 #include "ie_icore.hpp"
 #include "openvino/runtime/properties.hpp"
 #include "openvino/util/common_util.hpp"
+#include "utils/my_profiler.hpp"
 
 #include <algorithm>
 #include <unordered_set>
@@ -72,7 +73,11 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
     _network(network),
     _cfg{cfg},
     _name{network.getName()} {
-    SetPointerToPlugin(plugin);
+    auto p0 = MyProfile("ExecNetwork::ExecNetwork:" + std::to_string(__LINE__));
+    {
+        auto p1 = MyProfile("SetPointerToPlugin:" + std::to_string(__LINE__));
+        SetPointerToPlugin(plugin);
+    }
     auto function = network.getFunction();
     if (function == nullptr) {
         IE_THROW() << "CPU plug-in doesn't support not ngraph-based model!";
@@ -90,6 +95,7 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
         // special case when all InferRequests are muxed into a single queue
         _taskExecutor = _plugin->executorManager()->getExecutor("CPU");
     } else {
+        auto p1 = MyProfile("MakeDefaultMultiThreaded:" + std::to_string(__LINE__));
         auto streamsExecutorConfig =
             is_cpu_map_available()
                 ? _cfg.streamExecutorConfig
@@ -98,32 +104,46 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
         streamsExecutorConfig._name = "CPUStreamsExecutor";
         _cfg.streamExecutorConfig._threads = streamsExecutorConfig._threads;
 #if FIX_62820 && (IE_THREAD == IE_THREAD_TBB || IE_THREAD == IE_THREAD_TBB_AUTO)
+        auto p2 = MyProfile("std::make_shared<TBBStreamsExecutor>:" + std::to_string(__LINE__));
         _taskExecutor = std::make_shared<TBBStreamsExecutor>(streamsExecutorConfig);
 #else
+        auto p2 = MyProfile("_plugin->executorManager()->getIdleCPUStreamsExecutor:" + std::to_string(__LINE__));
         _taskExecutor = _plugin->executorManager()->getIdleCPUStreamsExecutor(streamsExecutorConfig);
 #endif
     }
     if (0 != cfg.streamExecutorConfig._streams) {
 #if FIX_62820 && (IE_THREAD == IE_THREAD_TBB || IE_THREAD == IE_THREAD_TBB_AUTO)
         // There is no additional threads but we still need serialize callback execution to preserve legacy behaviour
+        auto p3 = MyProfile("std::make_shared<ImmediateSerialExecutor>():" + std::to_string(__LINE__));
         _callbackExecutor = std::make_shared<ImmediateSerialExecutor>();
 #else
+        auto p3 = MyProfile("_plugin->executorManager()->getIdleCPUStreamsExecutor:" + std::to_string(__LINE__));
         _callbackExecutor = _plugin->executorManager()->getIdleCPUStreamsExecutor(
                                 IStreamsExecutor::Config{"CPUCallbackExecutor", 1, 0, IStreamsExecutor::ThreadBindingType::NONE});
 #endif
     } else {
+        auto p3 = MyProfile("_callbackExecutor = _taskExecutor:" + std::to_string(__LINE__));
         _callbackExecutor = _taskExecutor;
     }
     int streams = std::max(1, _cfg.streamExecutorConfig._streams);
-    std::vector<Task> tasks; tasks.resize(streams);
-    _graphs.resize(streams);
+    std::vector<Task> tasks;
+    {
+        auto p4 = MyProfile("resize:" + std::to_string(__LINE__));
+        tasks.resize(streams);
+        _graphs.resize(streams);
+    }
+
     if (_cfg.streamExecutorConfig._streams != 0) {
+        auto p5 = MyProfile("all_graphs_ready:" + std::to_string(__LINE__));
         auto all_graphs_ready = [&] {
             return std::all_of(_graphs.begin(), _graphs.end(), [&] (Graph& graph) {
                 return graph.IsReady();
             });
         };
         do {
+            static int g_task_idx = 0;
+            auto p5_1 = MyProfile("task[" + std::to_string(g_task_idx++) + "]:" + std::to_string(__LINE__),
+                                  {{"task_num", std::to_string(tasks.size())}});
             for (auto&& task : tasks) {
                 task = [this] {
                     ExecNetwork::GetGraph();
@@ -132,6 +152,7 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
             _taskExecutor->runAndWait(tasks);
         } while (!all_graphs_ready());
     } else {
+        auto p5 = MyProfile("ExecNetwork::GetGraph():" + std::to_string(__LINE__));
         ExecNetwork::GetGraph();
     }
 
@@ -139,8 +160,10 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
     // of MemoryLayer implementation. It uses output edge of MemoryLayer
     // producer as storage for tensor to keep it between infer calls.
     if (_graphs.size() == 1) {
+        auto p6 = MyProfile("check MemoryInput:" + std::to_string(__LINE__));
         for (auto &node : GetGraph()._graph.GetNodes()) {
             if (node->getType() == Type::MemoryInput) {
+                auto p7 = MyProfile(node->getName() + ":" + std::to_string(__LINE__));
                 auto memoryNode = dynamic_cast<node::MemoryInput*>(node.get());
                 if (!memoryNode) {
                     IE_THROW() << "Cannot cast " << node->getName() << " to MemoryInput";
@@ -171,9 +194,11 @@ ExecNetwork::GraphGuard::Lock ExecNetwork::GetGraph() const {
     if (!graphLock._graph.IsReady()) {
         std::exception_ptr exception;
         auto makeGraph = [&] {
+            auto p = MyProfile("makeGraph:" + std::to_string(__LINE__));
             try {
                 GraphContext::Ptr ctx;
                 {
+                    auto p1 = MyProfile("std::make_shared<GraphContext>:" + std::to_string(__LINE__));
                     std::lock_guard<std::mutex> lock{*_mutex.get()};
                     // disable weights caching if graph was created only once
                     auto weightsCache =
@@ -185,6 +210,7 @@ ExecNetwork::GraphGuard::Lock ExecNetwork::GetGraph() const {
 
                     ctx = std::make_shared<GraphContext>(_cfg, extensionManager, weightsCache, isQuantizedFlag);
                 }
+                auto p2 = MyProfile("CreateGraph:" + std::to_string(__LINE__));
                 graphLock._graph.CreateGraph(_network, ctx);
             } catch (...) {
                 exception = std::current_exception();

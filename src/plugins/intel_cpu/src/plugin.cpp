@@ -6,6 +6,7 @@
 
 #include "openvino/runtime/properties.hpp"
 #include "plugin.h"
+#include "utils/my_profiler.hpp"
 
 #include "transformations/transformation_pipeline.h"
 #include "itt.h"
@@ -426,6 +427,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Engine::LoadExeNetworkImpl");
     CREATE_DEBUG_TIMER(debugLoadTimer);
 
+    auto p0 = MyProfile("Engine::LoadExeNetworkImpl:" + std::to_string(__LINE__));
     // verification of supported input
     for (const auto &ii : network.getInputsInfo()) {
         auto input_precision = ii.second->getPrecision();
@@ -450,7 +452,11 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
 
     auto config = orig_config;
 
-    CNNNetwork clonedNetwork = InferenceEngine::details::cloneNetwork(network);
+    CNNNetwork clonedNetwork;
+    {
+        auto p1 = MyProfile("InferenceEngine::details::cloneNetwork:" + std::to_string(__LINE__));
+        clonedNetwork = InferenceEngine::details::cloneNetwork(network);
+    }
     const bool enableLPT = shouldEnableLPT(config, engConfig);
     ov::element::Type inferencePrecision = getInferencePrecision(config, engConfig);
     const Config::SnippetsMode snippetsMode = getSnippetsMode(config, engConfig);
@@ -460,7 +466,10 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
     DEBUG_LOG(PrintableModel(*nGraphFunc, "org_"));
 
     Transformations transformations(nGraphFunc, enableLPT, inferencePrecision, isLegacyAPI(), snippetsMode, engConfig);
-    transformations.UpToCpuSpecificOpSet();
+    {
+        auto p2 = MyProfile("transformations.UpToCpuSpecificOpSet:" + std::to_string(__LINE__));
+        transformations.UpToCpuSpecificOpSet();
+    }
 
     // need to check that all outputs have static shapes
     // checking that all inputs have static shapes is performed in the common part
@@ -475,7 +484,10 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
     if (!is_cpu_map_available()) {
         ApplyPerformanceHints(config, nGraphFunc);
     }
-    transformations.CpuSpecificOpSet();
+    {
+        auto p1 = MyProfile("transformations.CpuSpecificOpSet" + std::to_string(__LINE__));
+        transformations.CpuSpecificOpSet();
+    }
 
     DEBUG_LOG(PrintableModel(*nGraphFunc, "cpu_"));
 
@@ -500,6 +512,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
         }
     }
 
+    auto p3 = MyProfile("std::make_shared<ExecNetwork>" + std::to_string(__LINE__));
     return std::make_shared<ExecNetwork>(clonedNetwork, conf, extensionManager, shared_from_this());
 }
 

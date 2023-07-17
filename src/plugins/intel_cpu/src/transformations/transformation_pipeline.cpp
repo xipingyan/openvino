@@ -81,6 +81,7 @@
 #include "transformations/smart_reshape/matmul_sr.hpp"
 #include "transformations/init_node_info.hpp"
 #include "utils/ngraph_transformation.hpp"
+#include "utils/my_profiler.hpp"
 
 // LPT transformations
 #include "low_precision/add.hpp"
@@ -177,15 +178,25 @@ void Transformations::UpToCpuSpecificOpSet() {
         }
     }
 
-    PreLpt(defaultPrecisions, isLegacyApi);
+    {
+        auto p = MyProfile("PreLpt:" + std::to_string(__LINE__));
+        PreLpt(defaultPrecisions, isLegacyApi);
+    }
 
-    if (useLpt)
+    if (useLpt) {
+        auto p = MyProfile("Lpt:" + std::to_string(__LINE__));
         Lpt(hasINT16orINT32Levels, defaultPrecisions);
+    }
 
-    PostLpt();
+    {
+        auto p = MyProfile("PostLpt:" + std::to_string(__LINE__));
+        PostLpt();
+    }
 
-    if (useSnippets)
+    if (useSnippets) {
+        auto p = MY_PROFILE("Snippets");
         Snippets();
+    }
 }
 
 void Transformations::CpuSpecificOpSet(void) {
@@ -463,6 +474,7 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
             ov::pass::ConvertQuantizeDequantize);
     }
 
+    auto p = MY_PROFILE("manager.run_passes");
     manager.run_passes(model);
 }
 
