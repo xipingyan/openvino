@@ -60,6 +60,7 @@
 #include "utils/general_utils.h"
 #include "utils/cpu_utils.hpp"
 #include "utils/verbose.h"
+#include "utils/my_profiler.hpp"
 #include "nodes/common/cpu_convert.h"
 #include "memory_desc/cpu_memory_desc_utils.h"
 #include "memory_desc/dnnl_blocked_memory_desc.h"
@@ -1281,6 +1282,8 @@ Node* Node::NodesFactory::create(const std::shared_ptr<ngraph::Node>& op, const 
     // /path-to-openVino-root/src/plugins/intel_cpu/nodes/gather.cpp:42 [ NOT_IMPLEMENTED ] Only opset7 Gather operation is supported
     // The most important part of the message is the reason, so the lambda trims everything up to "]"
     // Note that the op type and its friendly name will also be provided if we fail to create the node.
+    auto p = MY_PROFILE("Node::NodesFactory::create" + op->get_name());
+
     auto getExceptionDescWithoutStatus = [](const InferenceEngine::Exception& ex) {
         std::string desc = ex.what();
         size_t pos = desc.find("]");
@@ -1296,12 +1299,14 @@ Node* Node::NodesFactory::create(const std::shared_ptr<ngraph::Node>& op, const 
     Node *newNode = nullptr;
     std::string errorMessage;
     {
+        // auto p1 = MY_PROFILE("createNodeIfRegistered_1");
         std::unique_ptr<Node> ol(createNodeIfRegistered(intel_cpu, Type::Generic, op, context));
         if (ol != nullptr && ol->created(context->getExtensionManager()))
             newNode = ol.release();
     }
 
     if (newNode == nullptr) {
+        auto p1 = MY_PROFILE("createNodeIfRegistered_2");
         try {
             std::unique_ptr<Node> ol(createNodeIfRegistered(intel_cpu, TypeFromName(op->get_type_name()), op, context));
             if (ol != nullptr && ol->created(context->getExtensionManager()))
@@ -1316,6 +1321,7 @@ Node* Node::NodesFactory::create(const std::shared_ptr<ngraph::Node>& op, const 
     }
 
     if (newNode == nullptr) {
+        auto p1 = MY_PROFILE("new Reference:" + op->get_name());
         try {
             std::unique_ptr<Node> ol(new Reference(op, context, errorMessage));
             if (ol != nullptr && ol->created(context->getExtensionManager()))
