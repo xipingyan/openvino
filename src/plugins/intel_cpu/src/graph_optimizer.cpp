@@ -52,6 +52,7 @@
 
 #include "itt.h"
 #include "memory_desc/cpu_memory_desc_utils.h"
+#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace InferenceEngine;
@@ -66,112 +67,193 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph &graph) {
     // For conv with input zp, canBeExecutedInInt8() check has dependency on input zero point check.
     // Also zero point node is the input of computing-intensive nodes. Most others fusing are the output of computing-intensive nodes.
     // So Locate the FuseConvolutionAndZeroPoints() as the first optimization.
-    OV_ITT_SCOPE_CHAIN(FIRST_INFERENCE, taskChain, itt::domains::intel_cpu_LT, "ApplyCommonGraphOptimizations", "FuseConvolutionAndZeroPoints");
-    FuseConvolutionAndZeroPoints(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_CHAIN(FIRST_INFERENCE, taskChain, itt::domains::intel_cpu_LT, "ApplyCommonGraphOptimizations", "FuseConvolutionAndZeroPoints");
+    {
+        auto p = MY_PROFILE("FuseConvolutionAndZeroPoints");
+        FuseConvolutionAndZeroPoints(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvMatmulFCDeconvAndDQScales");
-    FuseConvMatmulFCDeconvAndDQScales(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvMatmulFCDeconvAndDQScales");
+    {
+        auto p = MY_PROFILE("FuseConvMatmulFCDeconvAndDQScales");
+        FuseConvMatmulFCDeconvAndDQScales(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndBias");
-    FuseConvolutionMatMulDeconvAndBias(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndBias");
+    {
+        auto p = MY_PROFILE("FuseConvolutionMatMulDeconvAndBias");
+        FuseConvolutionMatMulDeconvAndBias(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMultiplyAndAdd");
-    FuseMultiplyAndAdd(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMultiplyAndAdd");
+    {
+        auto p = MY_PROFILE("FuseMultiplyAndAdd");
+        FuseMultiplyAndAdd(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "MergeConvertAndScaleShift");
-    MergeConvertAndScaleShift(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "MergeConvertAndScaleShift");
+    {
+        auto p = MY_PROFILE("MergeConvertAndScaleShift");
+        MergeConvertAndScaleShift(graph);
+        graph.RemoveDroppedNodes();
+    }
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseDeconvolutionAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseDeconvolutionAndSimpleOperation");
+        FuseDeconvolutionAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseDeconvolutionAndSimpleOperation");
-    FuseDeconvolutionAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseBroadcastAndEltwise");
+    {
+        auto p = MY_PROFILE("FuseBroadcastAndEltwise");
+        FuseBroadcastAndEltwise(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseBroadcastAndEltwise");
-    FuseBroadcastAndEltwise(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseClampAndFakeQuantize");
+    {
+        auto p = MY_PROFILE("FuseClampAndFakeQuantize");
+        FuseClampAndFakeQuantize(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseClampAndFakeQuantize");
-    FuseClampAndFakeQuantize(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePerformedAsScaleShiftAndFakeQuantize");
+    {
+        auto p = MY_PROFILE("FusePerformedAsScaleShiftAndFakeQuantize");
+        FusePerformedAsScaleShiftAndFakeQuantize(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePerformedAsScaleShiftAndFakeQuantize");
-    FusePerformedAsScaleShiftAndFakeQuantize(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperationThroughMaxPool");
+    {
+        auto p = MY_PROFILE("FuseConvolutionAndSimpleOperationThroughMaxPool");
+        FuseConvolutionAndSimpleOperationThroughMaxPool(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperationThroughMaxPool");
-    FuseConvolutionAndSimpleOperationThroughMaxPool(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseConvolutionAndSimpleOperation");
+        FuseConvolutionAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperation");
-    FuseConvolutionAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
+    {
+        auto p = MY_PROFILE("SortTopologically");
+        graph.SortTopologically();
+        graph.RemoveDroppedEdges();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
-    graph.SortTopologically();
-    graph.RemoveDroppedEdges();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePoolingAndFakeQuantize");
+    {
+        auto p = MY_PROFILE("FusePoolingAndFakeQuantize");
+        FusePoolingAndFakeQuantize(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePoolingAndFakeQuantize");
-    FusePoolingAndFakeQuantize(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
+    {
+        auto p = MY_PROFILE("SortTopologically");
+        graph.SortTopologically();
+        graph.RemoveDroppedEdges();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
-    graph.SortTopologically();
-    graph.RemoveDroppedEdges();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndDWConvolution");
+    {
+        auto p = MY_PROFILE("FuseConvolutionAndDWConvolution");
+        FuseConvolutionAndDWConvolution(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndDWConvolution");
-    FuseConvolutionAndDWConvolution(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionSumAndConvolutionSumActivation");
+    {
+        auto p = MY_PROFILE("FuseConvolutionSumAndConvolutionSumActivation");
+        FuseConvolutionSumAndConvolutionSumActivation(graph);
+        auto p1 = MY_PROFILE("RemoveDroppedNodes");
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionSumAndConvolutionSumActivation");
-    FuseConvolutionSumAndConvolutionSumActivation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseConvolutionAndSimpleOperation");
+        FuseConvolutionAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperation");
-    FuseConvolutionAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseFullyConnectedAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseFullyConnectedAndSimpleOperation");
+        FuseFullyConnectedAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseFullyConnectedAndSimpleOperation");
-    FuseFullyConnectedAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMatMulAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseMatMulAndSimpleOperation");
+        FuseMatMulAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMatMulAndSimpleOperation");
-    FuseMatMulAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMVNAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseMVNAndSimpleOperation");
+        FuseMVNAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMVNAndSimpleOperation");
-    FuseMVNAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseInterpolateAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseInterpolateAndSimpleOperation");
+        FuseInterpolateAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseInterpolateAndSimpleOperation");
-    FuseInterpolateAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseNormalizeL2AndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseNormalizeL2AndSimpleOperation");
+        FuseNormalizeL2AndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseNormalizeL2AndSimpleOperation");
-    FuseNormalizeL2AndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseReduceAndSimpleOperation");
+    {
+        auto p = MY_PROFILE("FuseReduceAndSimpleOperation");
+        FuseReduceAndSimpleOperation(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseReduceAndSimpleOperation");
-    FuseReduceAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseEltwiseAndSimple");
+    {
+        auto p = MY_PROFILE("FuseEltwiseAndSimple");
+        FuseEltwiseAndSimple(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseEltwiseAndSimple");
-    FuseEltwiseAndSimple(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "reshapeRnnSeq");
+    {
+        auto p = MY_PROFILE("reshapeRnnSeq");
+        reshapeRnnSeq(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "reshapeRnnSeq");
-    reshapeRnnSeq(graph);
-    graph.RemoveDroppedNodes();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveSameConvert");
+    {
+        auto p = MY_PROFILE("RemoveSameConvert");
+        RemoveSameConvert(graph);
+        graph.RemoveDroppedNodes();
+    }
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveSameConvert");
-    RemoveSameConvert(graph);
-    graph.RemoveDroppedNodes();
-
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
-    graph.RemoveDroppedEdges();
+    // OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
+    {
+        auto p = MY_PROFILE("RemoveDroppedEdges");
+        graph.RemoveDroppedEdges();
+    }
 }
 
 void GraphOptimizer::ApplyImplSpecificGraphOptimizations(Graph &graph) {
