@@ -39,6 +39,7 @@
 #include "utils/node_dumper.h"
 #include "utils/verbose.h"
 #include "utils/precision_support.h"
+#include "utils/my_profiler.hpp"
 
 #include <oneapi/dnnl/dnnl.hpp>
 #include "common/primitive_desc_iface.hpp"
@@ -1122,6 +1123,7 @@ void Graph::PullOutputData(std::unordered_map<std::size_t, ov::SoPtr<ITensor>>& 
 }
 
 void Graph::InferStatic(SyncInferRequest* request) {
+    auto _prof0 = MY_PROFILE("::InferStatic#" + std::to_string(infer_count));
     dnnl::stream stream(getEngine());
 
     for (const auto& node : m_executableGraphNodes) {
@@ -1130,6 +1132,9 @@ void Graph::InferStatic(SyncInferRequest* request) {
 
         if (request)
             request->throw_if_canceled();
+
+        auto _prof = MY_PROFILE_ARGS(node->getTypeStr(),
+                                     {{"Name", node->getName()}, {"Impl", node->getPrimitiveDescriptorType()}});
         ExecuteNode(node, stream);
     }
 }
@@ -1341,6 +1346,7 @@ public:
 
 
 void Graph::InferDynamic(SyncInferRequest* request) {
+    auto _prof0 = MY_PROFILE("::InferDynamic_#" + std::to_string(infer_count));
     dnnl::stream stream(getEngine());
 
     std::unique_ptr<IUpdateNodes> updateNodes{};
@@ -1352,12 +1358,17 @@ void Graph::InferDynamic(SyncInferRequest* request) {
 
     size_t inferCounter = 0;
     for (auto stopIndx : m_executableSyncNodesInds) {
-        updateNodes->run(stopIndx);
+        {
+            auto _prof = MY_PROFILE("*updateNodes*");
+            updateNodes->run(stopIndx);
+        }
         for (; inferCounter < stopIndx; ++inferCounter) {
             auto& node = m_executableGraphNodes[inferCounter];
             VERBOSE(node, getConfig().debugCaps.verbose);
             PERF(node, getConfig().collectPerfCounters);
 
+            auto _prof = MY_PROFILE_ARGS(node->getTypeStr(),
+                                         {{"Name", node->getName()}, {"Impl", node->getPrimitiveDescriptorType()}});
             if (request)
                 request->throw_if_canceled();
             try {
@@ -1467,7 +1478,8 @@ void Graph::Infer(SyncInferRequest* request) {
         OPENVINO_THROW("Unknown ov::intel_cpu::Graph state: " , static_cast<size_t>(status));
     }
 
-    if (infer_count != -1) infer_count++;
+    // if (infer_count != -1) infer_count++;
+    infer_count++;
 }
 
 void Graph::SortTopologically() {
