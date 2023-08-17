@@ -23,6 +23,7 @@
 #include "openvino/util/env_util.hpp"
 #include "openvino/util/log.hpp"
 #include "perf_counters.hpp"
+#include "openvino/util/my_profiler_core.hpp"
 
 using namespace std;
 
@@ -63,6 +64,7 @@ void ov::pass::Manager::set_per_pass_validation(bool new_state) {
 bool ov::pass::Manager::run_passes(shared_ptr<ov::Model> func) {
     NGRAPH_SUPPRESS_DEPRECATED_START
     OV_ITT_SCOPED_TASK(ov::itt::domains::core, "pass::Manager::run_passes");
+    auto p = MY_PROFILE_CORE("pass::Manager::run_passes");
 
     static bool profile_enabled =
         ov::util::getenv_bool("NGRAPH_PROFILE_PASS_ENABLE") || ov::util::getenv_bool("OV_PROFILE_PASS_ENABLE");
@@ -83,6 +85,8 @@ bool ov::pass::Manager::run_passes(shared_ptr<ov::Model> func) {
         OV_ITT_SCOPE(FIRST_INFERENCE, ov::itt::domains::ov_pass, ov::pass::perf_counters()[pass->get_type_info()]);
 
         pass_timer.start();
+        // auto p1 = MY_PROFILE_CORE_ARGS(pass->get_name(), {{"type_info", pass->get_type_info()}});
+        auto p1 = MY_PROFILE_CORE(pass->get_name());
 
         if (auto matcher_pass = dynamic_pointer_cast<MatcherPass>(pass)) {
             // This checks is to skip the graph transformation when the graph pass relies on
