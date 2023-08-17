@@ -17,6 +17,7 @@
 #include "simplify_fakequantize.hpp"
 
 ov::intel_cpu::ConvertToInteraction::ConvertToInteraction() {
+    auto p = MY_PROFILE("ConvertToInteraction");
     MATCHER_SCOPE(ConvertToInteraction);
     using namespace ov::pass::pattern;
     auto dense_feature_m = any_input(has_static_shape());
@@ -127,6 +128,7 @@ ov::intel_cpu::FuseFQtoInteraction::FuseFQtoInteraction() {
 }
 
 ov::intel_cpu::ConvertInteractionInt8::ConvertInteractionInt8() {
+    auto p = MY_PROFILE("ConvertInteractionInt8");
     MATCHER_SCOPE(ConvertInteractionInt8);
     using namespace ov::pass::pattern;
     const int sparse_features = 26;

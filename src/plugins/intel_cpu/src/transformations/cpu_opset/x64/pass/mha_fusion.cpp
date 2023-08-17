@@ -16,6 +16,7 @@
 
 // TODO: draw pattern
 ov::intel_cpu::MHAFloatFusion::MHAFloatFusion() {
+    MyProfile p = MY_PROFILE("MHAFloatFusion");
     MATCHER_SCOPE(MHAFloatFusion);
 
     auto in0 = ngraph::pattern::any_input(ngraph::pattern::has_static_shape());
@@ -159,6 +160,7 @@ ov::intel_cpu::MHAFloatFusion::MHAFloatFusion() {
 }
 
 ov::intel_cpu::MHAFloatFusion2::MHAFloatFusion2() {
+    auto p = MY_PROFILE("MHAFloatFusion2");
     MATCHER_SCOPE(MHAFloatFusion2);
 
     auto in0 = ngraph::pattern::any_input(ngraph::pattern::has_static_shape());
@@ -253,6 +255,7 @@ ov::intel_cpu::MHAFloatFusion2::MHAFloatFusion2() {
 
 // TODO: draw pattern
 ov::intel_cpu::MHAQuantFusion::MHAQuantFusion() {
+    auto p = MY_PROFILE("MHAQuantFusion");
     MATCHER_SCOPE(MHAQuantFusion);
 
     auto in0 = ngraph::pattern::any_input(ngraph::pattern::has_static_shape());
@@ -442,6 +445,7 @@ ov::intel_cpu::MHAQuantFusion::MHAQuantFusion() {
 
 // TODO: draw pattern
 ov::intel_cpu::MHAQuantFusion2::MHAQuantFusion2() {
+    auto p = MY_PROFILE("MHAQuantFusion2");
     MATCHER_SCOPE(MHAQuantFusion2);
 
     auto in0 = ngraph::pattern::any_input(ngraph::pattern::has_static_shape());

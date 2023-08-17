@@ -73,7 +73,7 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
     _network(network),
     _cfg{cfg},
     _name{network.getName()} {
-    auto p0 = MyProfile("ExecNetwork::ExecNetwork:" + std::to_string(__LINE__));
+    auto p0 = MY_PROFILE_ARGS("ExecNetwork::ExecNetwork", {{"model name", _name}});
     {
         auto p1 = MyProfile("SetPointerToPlugin:" + std::to_string(__LINE__));
         SetPointerToPlugin(plugin);

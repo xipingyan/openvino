@@ -5,6 +5,7 @@
 #pragma once
 
 #include <ngraph/pass/graph_rewrite.hpp>
+#include "utils/my_profiler.hpp"
 
 namespace ov {
 namespace intel_cpu {

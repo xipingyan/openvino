@@ -7,12 +7,13 @@
 #include <ngraph/opsets/opset1.hpp>
 #include <ngraph/rt_info.hpp>
 #include <ngraph/pattern/op/wrap_type.hpp>
-
+#include "utils/my_profiler.hpp"
 #include "itt.hpp"
 
 NGRAPH_RTTI_DEFINITION(ov::intel_cpu::SwapConvertTranspose, "SwapConvertTranspose");
 
 ov::intel_cpu::SwapConvertTranspose::SwapConvertTranspose() {
+    auto p = MY_PROFILE("SwapConvertTranspose::SwapConvertTranspose");
     MATCHER_SCOPE(SwapConvertTranspose);
     ov::element::TypeVector param_precisions{ ov::element::i8, ov::element::u8 };
     auto input_m = ov::pass::pattern::wrap_type<ov::op::v0::Parameter>(ov::pass::pattern::type_matches_any(param_precisions));
@@ -20,6 +21,7 @@ ov::intel_cpu::SwapConvertTranspose::SwapConvertTranspose() {
     auto transpose_m = ov::pass::pattern::wrap_type<ov::op::v1::Transpose>({convert_m, ov::pass::pattern::any_input()});
 
     ov::matcher_pass_callback callback = [=](ov::pass::pattern::Matcher& m) {
+        auto p = MY_PROFILE("SwapConvertTranspose::callback");
         // Swap
         // Input -> [i8/u8] -> Convert -> [f32] -> Transpose -> [f32]
         // to

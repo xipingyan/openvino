@@ -5,6 +5,7 @@
 
 #include <ngraph/pattern/op/wrap_type.hpp>
 #include <ngraph/pass/graph_rewrite.hpp>
+#include "utils/my_profiler.hpp"
 
 /*
  * Description:
@@ -84,6 +85,7 @@ class ConvertReduceMultiAxis: public ngraph::pass::GraphRewrite {
 public:
     OPENVINO_RTTI("ConvertReduceMultiAxis", "0");
     ConvertReduceMultiAxis() {
+        auto p = MY_PROFILE("ConvertReduceMultiAxis");
         add_matcher<ConvertReduceProd>();
         add_matcher<ConvertReduceMin>();
         add_matcher<ConvertReduceMax>();

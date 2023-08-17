@@ -427,7 +427,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Engine::LoadExeNetworkImpl");
     CREATE_DEBUG_TIMER(debugLoadTimer);
 
-    auto p0 = MyProfile("Engine::LoadExeNetworkImpl:" + std::to_string(__LINE__));
+    auto p0 = MY_PROFILE("LoadExeNetworkImpl");
     // verification of supported input
     for (const auto &ii : network.getInputsInfo()) {
         auto input_precision = ii.second->getPrecision();
@@ -454,7 +454,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
 
     CNNNetwork clonedNetwork;
     {
-        auto p1 = MyProfile("InferenceEngine::details::cloneNetwork:" + std::to_string(__LINE__));
+        auto p1 = MY_PROFILE("cloneNetwork");
         clonedNetwork = InferenceEngine::details::cloneNetwork(network);
     }
     const bool enableLPT = shouldEnableLPT(config, engConfig);
@@ -467,7 +467,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
 
     Transformations transformations(nGraphFunc, enableLPT, inferencePrecision, isLegacyAPI(), snippetsMode, engConfig);
     {
-        auto p2 = MyProfile("transformations.UpToCpuSpecificOpSet:" + std::to_string(__LINE__));
+        auto p2 = MY_PROFILE("transformations.UpToCpuSpecificOpSet");
         transformations.UpToCpuSpecificOpSet();
     }
 
@@ -485,7 +485,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
         ApplyPerformanceHints(config, nGraphFunc);
     }
     {
-        auto p1 = MyProfile("transformations.CpuSpecificOpSet" + std::to_string(__LINE__));
+        auto p1 = MY_PROFILE("transformations.CpuSpecificOpSet");
         transformations.CpuSpecificOpSet();
     }
 

@@ -239,7 +239,7 @@ void Graph::Replicate(const CNNNetwork &network) {
 
     // Replicate All Nodes in topological order
     for (const auto& op : orderedOps) {
-        auto p = MY_PROFILE("cp:" + op->get_name());
+        auto p = MY_PROFILE_ARGS(op->get_type_name(), {{"name", op->get_name()}});
         const NodePtr node(Node::factory().create(op, context));
 
         graphNodes.push_back(node);
@@ -1110,6 +1110,7 @@ void Graph::PullOutputData(BlobMap &out) {
 }
 
 void Graph::InferStatic(InferRequestBase* request) {
+    auto p = MY_PROFILE("InferStatic:"+ std::to_string(infer_count));
     dnnl::stream stream(getEngine());
 
     for (const auto& node : executableGraphNodes) {
@@ -1319,6 +1320,7 @@ public:
 
 
 void Graph::InferDynamic(InferRequestBase* request) {
+    auto p = MY_PROFILE("InferDynamic:"+ std::to_string(infer_count));
     dnnl::stream stream(getEngine());
 
     std::set<size_t> syncIndsWorkSet;
@@ -1339,7 +1341,11 @@ void Graph::InferDynamic(InferRequestBase* request) {
     size_t inferCounter = 0;
 
     for (auto stopIndx : syncIndsWorkSet) {
-        updateNodes->run(stopIndx);
+        {
+            auto p1 = MY_PROFILE_ARGS("updateNodes", {{"stopIndx", std::to_string(stopIndx)}});
+            updateNodes->run(stopIndx);
+        }
+
         for (; inferCounter < stopIndx; ++inferCounter) {
             auto& node = executableGraphNodes[inferCounter];
             VERBOSE(node, getConfig().debugCaps.verbose);
@@ -1347,6 +1353,8 @@ void Graph::InferDynamic(InferRequestBase* request) {
 
             if (request)
                 request->ThrowIfCanceled();
+
+            auto p2 = MY_PROFILE_ARGS(node->typeStr, {{"name", node->getName()}});
             ExecuteNode(node, stream);
         }
     }
@@ -1366,6 +1374,7 @@ inline void Graph::ExecuteNode(const NodePtr& node, const dnnl::stream& stream) 
 }
 
 void Graph::Infer(InferRequestBase* request) {
+    auto p = MY_PROFILE_ARGS("Infer:" + std::to_string(infer_count), {{"model name", GetName()}});
     if (!IsReady()) {
         IE_THROW() << "Wrong state of the ov::intel_cpu::Graph. Topology is not ready.";
     }

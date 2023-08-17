@@ -179,17 +179,17 @@ void Transformations::UpToCpuSpecificOpSet() {
     }
 
     {
-        auto p = MyProfile("PreLpt:" + std::to_string(__LINE__));
+        auto p = MY_PROFILE_ARGS("PreLpt", {{"isLegacyApi", std::to_string(isLegacyApi)}});
         PreLpt(defaultPrecisions, isLegacyApi);
     }
 
     if (useLpt) {
-        auto p = MyProfile("Lpt:" + std::to_string(__LINE__));
+        auto p = MY_PROFILE("Lpt");
         Lpt(hasINT16orINT32Levels, defaultPrecisions);
     }
 
     {
-        auto p = MyProfile("PostLpt:" + std::to_string(__LINE__));
+        auto p = MY_PROFILE("PostLpt");
         PostLpt();
     }
 
@@ -635,6 +635,7 @@ void Transformations::PostLpt() {
 }
 
 void Transformations::MainSnippets(void) {
+    auto p = MY_PROFILE("MainSnippets");
     if (snippetsMode == Config::SnippetsMode::Disable ||
         !dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2)) // snippets are implemented only for relevant platforms (avx2+ extensions)
         return;
@@ -748,6 +749,7 @@ void Transformations::MainSnippets(void) {
 }
 
 void Transformations::PostSnippets(void) {
+    auto p = MY_PROFILE("PostSnippets");
     ov::pass::Manager postSnippetsManager;
     postSnippetsManager.set_per_pass_validation(false);
     CPU_REGISTER_PASS_COMMON(postSnippetsManager, ov::pass::FakeQuantizeDecomposition);

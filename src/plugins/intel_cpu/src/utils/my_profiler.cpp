@@ -86,7 +86,7 @@ private:
     }
 
     void save_to_json() {
-        auto out_fn = "profile_complie_model_cpu.json";
+        auto out_fn = "profile_cpu_tracing_log.json";
         printf("=== Save tracing log: %s\n", out_fn);
         FILE* pf = fopen(out_fn, "wb");
         if (nullptr == pf) {

@@ -6,6 +6,7 @@
 
 #include <ngraph/pass/graph_rewrite.hpp>
 #include <ngraph/opsets/opset4.hpp>
+#include "utils/my_profiler.hpp"
 
 namespace ov {
 namespace intel_cpu {
@@ -53,6 +54,7 @@ class MHAFusion : public ngraph::pass::GraphRewrite {
 public:
     OPENVINO_RTTI("MHAFusion", "0");
     MHAFusion() {
+        auto p = MY_PROFILE("MHAFusion");
         add_matcher<MHAFloatFusion>();
         add_matcher<MHAFloatFusion2>();
         add_matcher<MHAQuantFusion>();
