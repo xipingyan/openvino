@@ -30,6 +30,8 @@
 #include "openvino/runtime/properties.hpp"
 #include "openvino/util/common_util.hpp"
 #include "utils/my_profiler.hpp"
+#include "utils/denormals.hpp"
+#include <cpu/x64/cpu_isa_traits.hpp>
 
 #include <algorithm>
 #include <unordered_set>
@@ -146,6 +148,18 @@ ExecNetwork::ExecNetwork(const InferenceEngine::CNNNetwork &network,
                                   {{"task_num", std::to_string(tasks.size())}});
             for (auto&& task : tasks) {
                 task = [this] {
+                    // SSE runtime check is needed for some ATOM machine, which is x86-64 but w/o SSE
+                    static Xbyak::util::Cpu cpu;
+                    if (cpu.has(Xbyak::util::Cpu::tSSE)) {
+                        if (this->_cfg.denormalsOptMode == Config::DenormalsOptMode::DO_On) {
+                            flush_to_zero(true);
+                            this->_cfg.DAZOn = denormals_as_zero(true);
+                        } else if (this->_cfg.denormalsOptMode == Config::DenormalsOptMode::DO_Off) {
+                            flush_to_zero(false);
+                            denormals_as_zero(false);
+                        }
+                    }
+
                     ExecNetwork::GetGraph();
                 };
             }

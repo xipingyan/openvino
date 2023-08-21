@@ -28,7 +28,6 @@
 #include "performance_heuristics.hpp"
 #include "openvino/runtime/properties.hpp"
 #include "weights_cache.hpp"
-#include "utils/denormals.hpp"
 
 #if defined(__linux__)
 # include <sys/auxv.h>
@@ -498,18 +497,6 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
     conf.readProperties(config);
     if (is_cpu_map_available()) {
         GetPerformanceStreams(conf, nGraphFunc);
-    }
-
-    // SSE runtime check is needed for some ATOM machine, which is x86-64 but w/o SSE
-    static Xbyak::util::Cpu cpu;
-    if (cpu.has(Xbyak::util::Cpu::tSSE)) {
-        if (conf.denormalsOptMode == Config::DenormalsOptMode::DO_On) {
-            flush_to_zero(true);
-            conf.DAZOn = denormals_as_zero(true);
-        } else if (conf.denormalsOptMode == Config::DenormalsOptMode::DO_Off) {
-            flush_to_zero(false);
-            denormals_as_zero(false);
-        }
     }
 
     auto p3 = MyProfile("std::make_shared<ExecNetwork>" + std::to_string(__LINE__));
