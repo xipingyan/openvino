@@ -17,6 +17,7 @@
 #include "convert.h"
 #include <common/primitive_hashing_utils.hpp>
 #include <utils/shape_inference/shape_inference_pass_through.hpp>
+#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace InferenceEngine;
@@ -373,12 +374,14 @@ void Reorder::reorderData(const IMemory &input, const IMemory &output, MultiCach
     }
 
     if (input.getDesc().isCompatible(output.getDesc())) {
+        auto p = MY_PROFILE("node::Reorder::reorderData:cpu_memcpy");
         auto srcPtr = static_cast<uint8_t*>(input.getData());
         auto dstPtr = static_cast<uint8_t*>(output.getData());
 
         auto copySize = output.getSize();
         cpu_memcpy(dstPtr, srcPtr, copySize);
     } else {
+        auto p = MY_PROFILE("node::Reorder::reorderData_cpu:cpu_convert");
         dnnl::reorder reorder;
         std::vector<uint8_t> tmpBuff;
 

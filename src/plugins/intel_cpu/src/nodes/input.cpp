@@ -22,6 +22,7 @@
 #include <cpu/x64/jit_generator.hpp>
 #include "memory_desc/dnnl_blocked_memory_desc.h"
 #include "utils/shape_inference/shape_inference_pass_through.hpp"
+#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace InferenceEngine;
@@ -252,6 +253,7 @@ Input::Input(const std::shared_ptr<ngraph::Node>& op, const GraphContext::CPtr c
 }
 
 void Input::cloneBlobIfRequired() {
+    auto p = MY_PROFILE_ARGS("Input::cloneBlobIfRequired", {{"name", constOp->get_name()}});
     Shape shape(constOp->get_shape().empty() ? ngraph::Shape(1, 1) : constOp->get_shape());
     const auto prec = convertPrecision(constOp->get_element_type());
     const size_t size = shape.getElementsCount();
@@ -265,7 +267,10 @@ void Input::cloneBlobIfRequired() {
         needFlushDenormalsToZero = false;
     }
 
-    auto cloneBlob = [&, this] () {
+    auto cloneBlob = [&, this]() {
+        auto p1 = MY_PROFILE_ARGS(
+            "cloneBlob",
+            {{"name", constOp->get_name()}, {"needFlushDenormalsToZero", std::to_string(needFlushDenormalsToZero)}});
         MemoryPtr memory;
 
         // CVS-74980
@@ -273,8 +278,12 @@ void Input::cloneBlobIfRequired() {
         // but ngraph Constant uses actual bitWidth for data storage allocation
         // in that case we make a copy to avoid overflow
         if (constOp->get_byte_size() >= memDesc.getCurrentMemSize()) {
+            auto p2 = MY_PROFILE_ARGS("Memory",
+                                      {{"get_byte_size", std::to_string(constOp->get_byte_size())},
+                                       {"getCurrentMemSize", std::to_string(memDesc.getCurrentMemSize())}});
             memory = std::make_shared<Memory>(getEngine(), memDesc, constOp->get_data_ptr());
         } else {
+            auto p2 = MY_PROFILE("Memory with memcpy");
             memory = std::make_shared<Memory>(getEngine(), memDesc);
             memcpy(memory->getData(), constOp->get_data_ptr(), constOp->get_byte_size());
         }
@@ -292,6 +301,7 @@ void Input::cloneBlobIfRequired() {
 
     // The presence of subnormals is better to determined at IR read time.
     auto hasSubnormals = [&, this] () {
+        auto p1 = MY_PROFILE_ARGS("hasSubnormals", {{"name", constOp->get_name()}});
         if (prec == InferenceEngine::Precision::FP32) {
             uint32_t const *u32data = constOp->get_data_ptr<uint32_t>();
 
@@ -304,7 +314,7 @@ void Input::cloneBlobIfRequired() {
                 const size_t iterations_num = size / batch_size + 1;
 
                 volatile bool has_subnormals = false;
-
+                auto p1 = MY_PROFILE_ARGS("parallel_for", {{"iterations_num", std::to_string(iterations_num)}});
                 parallel_for(iterations_num, [&](int n) {
                     auto ptr = u32data + n * batch_size;
                     const jit_has_subnormals_base::args_t args = {
@@ -364,13 +374,16 @@ void Input::cloneBlobIfRequired() {
 
     auto weightCache = context->getWeightsCache();
     if (weightCache) {
+        auto p2 = MY_PROFILE("weightCache");
         MemoryPtr ptr = *weightCache->findOrCreate(blobKey(), cloneBlob);
         memoryPtr = std::const_pointer_cast<const IMemory>(ptr);
     // IRs already have all subnormals flushed to zero, but in
     // read_model scenario with directly loaded original model still can have subnormals
     } else if (isBlobAligned() && (!needFlushDenormalsToZero || !hasSubnormals()) && !isWA()) {
+        auto p2 = MY_PROFILE("std::make_shared<Memory>");
         memoryPtr = std::make_shared<Memory>(getEngine(), memDesc, constOp->get_data_ptr());
     } else {
+        auto p2 = MY_PROFILE_ARGS("std::const_pointer_cast<const IMemory>", {{"isBlobAligned", std::to_string(isBlobAligned())}});
         memoryPtr = std::const_pointer_cast<const IMemory>(cloneBlob());
     }
 }

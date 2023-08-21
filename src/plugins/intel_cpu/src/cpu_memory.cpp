@@ -17,6 +17,7 @@
 #include "memory_desc/dnnl_blocked_memory_desc.h"
 #include "nodes/reorder.h"
 #include "memory_desc/cpu_memory_desc.h"
+#include "utils/my_profiler.hpp"
 
 using namespace InferenceEngine;
 using namespace dnnl;
@@ -25,6 +26,7 @@ namespace ov {
 namespace intel_cpu {
 namespace {
     inline void setSubnormalsToZero(float *data, size_t size) {
+        auto p = MY_PROFILE_ARGS("setSubnormalsToZero", {{"size", std::to_string(size)}});
         uint32_t *u32data = reinterpret_cast<uint32_t *>(data);
         for (size_t i = 0; i < size; ++i) {
             if ((u32data[i] & (0xFF << 23)) == 0) {
@@ -34,8 +36,10 @@ namespace {
     }
 
     void transferData(const IMemory& src, const IMemory& dst, bool ftz) {
-        node::Reorder::reorderData(src, dst);
-
+        {
+            auto p = MY_PROFILE("node::Reorder::reorderData");
+            node::Reorder::reorderData(src, dst);
+        }
         auto localPrim = dst.getPrimitive();
         auto desc = localPrim.get_desc();
         dnnl::impl::memory_desc_wrapper wrapper(desc.get());
@@ -46,6 +50,7 @@ namespace {
             // WA: to avoid zero filling auxiliary information
             && !wrapper.is_rnn_packed_desc()
             && dst.getDataType() != memory::data_type::bf16) {
+            auto p = MY_PROFILE("transferData:setSubnormalsToZero");
             // Internal blobs don't have strides yet.
             auto *memData = static_cast<float *>(dst.getData());
             memData += wrapper.offset0();
