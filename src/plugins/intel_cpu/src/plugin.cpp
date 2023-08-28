@@ -6,6 +6,7 @@
 
 #include "openvino/runtime/properties.hpp"
 #include "plugin.h"
+#include "utils/my_profiler.hpp"
 
 #include "transformations/transformation_pipeline.h"
 #include "itt.h"
@@ -466,6 +467,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Engine::LoadExeNetworkImpl");
     CREATE_DEBUG_TIMER(debugLoadTimer);
 
+    auto p0 = MyProfile("Engine::LoadExeNetworkImpl:" + std::to_string(__LINE__));
     // verification of supported input
     for (const auto &ii : network.getInputsInfo()) {
         auto input_precision = ii.second->getPrecision();
@@ -490,7 +492,11 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
 
     auto config = orig_config;
 
-    CNNNetwork clonedNetwork = InferenceEngine::details::cloneNetwork(network);
+    CNNNetwork clonedNetwork;
+    {
+        auto p1 = MyProfile("InferenceEngine::details::cloneNetwork:" + std::to_string(__LINE__));
+        clonedNetwork = InferenceEngine::details::cloneNetwork(network);
+    }
     const bool enableLPT = shouldEnableLPT(config, engConfig);
     auto nGraphFunc = clonedNetwork.getFunction();
     Config::ModelType modelType = getModelType(nGraphFunc);
@@ -542,6 +548,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
         }
     }
 
+    auto p3 = MyProfile("std::make_shared<ExecNetwork>" + std::to_string(__LINE__));
     return std::make_shared<ExecNetwork>(clonedNetwork, conf, extensionManager, shared_from_this());
 }
 

@@ -43,6 +43,7 @@
 #include "utils/ngraph_utils.hpp"
 #include "utils/cpu_utils.hpp"
 #include "utils/verbose.h"
+#include "utils/my_profiler.hpp"
 #include "memory_desc/cpu_memory_desc_utils.h"
 
 #include <openvino/core/model.hpp>
@@ -79,10 +80,14 @@ void Graph::CreateGraph(NET &net, const GraphContext::CPtr ctx) {
         ForgetGraphData();
 
     context = ctx;
-
-    Replicate(net);
-
-    InitGraph();
+    {
+        auto p = MY_PROFILE("Replicate");
+        Replicate(net);
+    }
+    {
+        auto p = MY_PROFILE("InitGraph");
+        InitGraph();
+    }
 
     CPU_DEBUG_CAP_ENABLE(serialize(*this));
 }
@@ -91,6 +96,7 @@ void Graph::CreateGraph(const std::vector<NodePtr> &graphNodes,
                               const std::vector<EdgePtr> &graphEdges,
                               const GraphContext::CPtr ctx,
                               std::string name) {
+    auto p = MY_PROFILE_ARGS("CreateGraph", {{"name of subgraph", name}});
     if (IsReady())
         ForgetGraphData();
 
@@ -110,7 +116,10 @@ void Graph::CreateGraph(const std::vector<NodePtr> &graphNodes,
         }
     }
 
-    InitGraph();
+    {
+        auto p1 = MY_PROFILE("InitGraph");
+        InitGraph();
+    }
 
     CPU_DEBUG_CAP_ENABLE(serialize(*this));
 }
@@ -231,6 +240,8 @@ void Graph::Replicate(const CNNNetwork &network) {
 
     // Replicate All Nodes in topological order
     for (const auto& op : orderedOps) {
+        auto p = MY_PROFILE_ARGS("cp:" + op->get_name(),
+                                 {{"get_friendly_name", op->get_friendly_name()}, {"type:", op->get_type_name()}});
         const NodePtr node(Node::factory().create(op, context));
 
         graphNodes.push_back(node);
@@ -356,43 +367,77 @@ void Graph::Replicate(const CNNNetwork &network) {
 void Graph::InitGraph() {
     GraphOptimizer optimizer;
 
-    SortTopologically();
-    InitNodes();
+    {
+        auto p = MY_PROFILE("Graph::SortTopologically");
+        SortTopologically();
+    }
 
-    optimizer.ApplyCommonGraphOptimizations(*this);
-    SortTopologically();
+    {
+        auto p = MY_PROFILE("Graph::InitNodes");
+        InitNodes();
+    }
 
-    InitDescriptors();
+    {
+        auto p = MY_PROFILE("optimizer.ApplyCommonGraphOptimizations");
+        optimizer.ApplyCommonGraphOptimizations(*this);
+    }
+    {
+        auto p = MY_PROFILE("Graph::SortTopologically");
+        SortTopologically();
+    }
 
-    ResolveInplaceDirections();
+    {
+        auto p = MY_PROFILE("Graph::InitDescriptors");
+        InitDescriptors();
+    }
+    {
+        auto p = MY_PROFILE("Graph::ResolveInplaceDirections");
+        ResolveInplaceDirections();
+    }
+    {
+        auto p = MY_PROFILE("Graph::InitOptimalPrimitiveDescriptors");
+        InitOptimalPrimitiveDescriptors();
+    }
+    {
+        auto p = MY_PROFILE("Graph::InitEdges");
+        InitEdges();
+    }
 
-    InitOptimalPrimitiveDescriptors();
-
-    InitEdges();
-
-    optimizer.ApplyImplSpecificGraphOptimizations(*this);
-    SortTopologically();
+    {
+        auto p = MY_PROFILE("optimizer.ApplyImplSpecificGraphOptimizations");
+        optimizer.ApplyImplSpecificGraphOptimizations(*this);
+    }
+    {
+        auto p = MY_PROFILE("Graph::SortTopologically");
+        SortTopologically();
+    }
 
     const bool hasDynNodes = ProcessDynNodes();
-
-    Allocate();
-
-    CreatePrimitivesAndExecConstants();
+    {
+        auto p = MY_PROFILE("Graph::Allocate");
+        Allocate();
+    }
+    {
+        auto p = MY_PROFILE("Graph::CreatePrimitivesAndExecConstants");
+        CreatePrimitivesAndExecConstants();
+    }
 
 #ifndef CPU_DEBUG_CAPS
     for (auto &graphNode : graphNodes) {
         graphNode->cleanup();
     }
 #endif
-
-    ExtractExecutableNodes();
-
+    {
+        auto p = MY_PROFILE("Graph::ExtractExecutableNodes");
+        ExtractExecutableNodes();
+    }
     status = hasDynNodes ? Status::ReadyDynamic : Status::ReadyStatic;
 }
 
 void Graph::InitNodes() {
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::InitNodes");
     for (auto &node : graphNodes) {
+        auto p = MY_PROFILE(node->getName()+"->init()");
         node->init();
     }
 }

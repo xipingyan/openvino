@@ -17,6 +17,7 @@
 #include "memory_desc/dnnl_blocked_memory_desc.h"
 #include "nodes/reorder.h"
 #include "memory_desc/cpu_memory_desc.h"
+#include "utils/my_profiler.hpp"
 
 using namespace InferenceEngine;
 using namespace dnnl;
@@ -25,6 +26,7 @@ namespace ov {
 namespace intel_cpu {
 namespace {
     inline void setSubnormalsToZero(float *data, size_t size) {
+        auto p = MY_PROFILE_ARGS("setSubnormalsToZero", {{"size", std::to_string(size)}});
         uint32_t *u32data = reinterpret_cast<uint32_t *>(data);
         for (size_t i = 0; i < size; ++i) {
             if ((u32data[i] & (0xFF << 23)) == 0) {

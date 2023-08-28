@@ -82,6 +82,7 @@
 #include "transformations/smart_reshape/matmul_sr.hpp"
 #include "transformations/init_node_info.hpp"
 #include "utils/ngraph_transformation.hpp"
+#include "utils/my_profiler.hpp"
 
 // LPT transformations
 #include "low_precision/add.hpp"
@@ -176,10 +177,15 @@ void Transformations::UpToLpt() {
         }
     }
 
-    PreLpt(defaultPrecisions, isLegacyApi);
+    {
+        auto p = MyProfile("PreLpt:" + std::to_string(__LINE__));
+        PreLpt(defaultPrecisions, isLegacyApi);
+    }
 
-    if (useLpt)
+    if (useLpt) {
+        auto p = MyProfile("Lpt:" + std::to_string(__LINE__));
         Lpt(hasINT16orINT32Levels, defaultPrecisions);
+    }
 }
 
 void Transformations::CpuSpecificOpSet(void) {

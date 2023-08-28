@@ -17,6 +17,7 @@
 #include "convert.h"
 #include <common/primitive_hashing_utils.hpp>
 #include <shape_inference/shape_inference_pass_through.hpp>
+#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace InferenceEngine;
@@ -362,6 +363,7 @@ std::string Reorder::getReorderArgs(const MemoryDesc &parentDesc, const MemoryDe
 }
 
 void Reorder::reorderData(const IMemory &input, const IMemory &output, MultiCachePtr cache) {
+    auto p = MY_PROFILE("Reorder::reorderData");
     if (!input.getDesc().isDefined() || !output.getDesc().isDefined())
         IE_THROW() << "Can't reorder data with dynamic shapes";
 
@@ -374,6 +376,7 @@ void Reorder::reorderData(const IMemory &input, const IMemory &output, MultiCach
         auto dstPtr = static_cast<uint8_t*>(output.getData());
 
         auto copySize = output.getSize();
+        auto p1 = MY_PROFILE_ARGS("cpu_memcpy", {{"size", std::to_string(copySize)}});
         cpu_memcpy(dstPtr, srcPtr, copySize);
     } else {
         dnnl::reorder reorder;
