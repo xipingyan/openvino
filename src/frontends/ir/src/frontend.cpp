@@ -16,6 +16,7 @@
 #include "openvino/util/mmap_object.hpp"
 #include "transformations/resolve_names_collisions.hpp"
 #include "xml_parse_utils.h"
+#include "openvino/util/my_profiler.hpp"
 
 using namespace ov;
 
@@ -115,6 +116,7 @@ void FrontEnd::add_extension(const ov::Extension::Ptr& ext) {
 }
 
 InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& variants) const {
+    auto p = MY_PROFILE_ARGS("FrontEnd::load_impl", {{"FE", "IR"}});
     std::ifstream local_model_stream;
     std::istream* provided_model_stream = nullptr;
     OPENVINO_SUPPRESS_DEPRECATED_START
@@ -131,8 +133,10 @@ InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& variants) const 
 
     auto create_input_model = [&]() -> std::shared_ptr<InputModel> {
         if (provided_model_stream) {
+            auto p = MY_PROFILE_ARGS("create_input_model", {{"from", "provided_model_stream"}});
             return std::make_shared<InputModel>(*provided_model_stream, weights, create_extensions_map());
         } else if (local_model_stream.is_open()) {
+            auto p = MY_PROFILE_ARGS("create_input_model", {{"from", "local_model_stream"}});
             auto input_model = std::make_shared<InputModel>(local_model_stream, weights, create_extensions_map());
             local_model_stream.close();
             return input_model;
@@ -204,12 +208,18 @@ InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& variants) const 
     }
     if (!weights_path.empty()) {
         if (enable_mmap) {
-            auto mapped_memory = ov::load_mmap_object(weights_path);
+            std::shared_ptr<MappedMemory> mapped_memory;
+            {
+                auto p1 = MY_PROFILE_ARGS("ov::load_mmap_object", {{"desc", "mmap weights"}});
+                mapped_memory = ov::load_mmap_object(weights_path);
+            }
+            auto p2 = MY_PROFILE_ARGS("std::make_shared<ngraph::runtime::SharedBuffer<std::shared_ptr<MappedMemory>>>", {{"desc", "Convert to SharedBuffer"}});
             weights =
                 std::make_shared<ngraph::runtime::SharedBuffer<std::shared_ptr<MappedMemory>>>(mapped_memory->data(),
                                                                                                mapped_memory->size(),
                                                                                                mapped_memory);
         } else {
+            auto p1 = MY_PROFILE_ARGS("read weight from file.", {{"desc", "Read weights directly"}});
             std::ifstream bin_stream;
             bin_stream.open(weights_path.c_str(), std::ios::binary);
             if (!bin_stream.is_open())

@@ -39,6 +39,7 @@
 #include "openvino/pass/manager.hpp"
 #include "threading/ie_executor_manager.hpp"
 #include "transformations/utils/utils.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace InferenceEngine {
 
@@ -144,6 +145,7 @@ std::shared_ptr<IExecutableNetworkInternal> IInferencePlugin::LoadNetwork(
     std::shared_ptr<ov::Model> function;
     InferenceEngine::CNNNetwork network = orig_network;
     if (orig_function) {
+        auto p1 = MyProfile("std::make_shared<ov::Model>");
         function = std::make_shared<ov::Model>(orig_function->get_results(),
                                                orig_function->get_sinks(),
                                                orig_function->get_parameters(),
@@ -182,11 +184,14 @@ std::shared_ptr<IExecutableNetworkInternal> IInferencePlugin::LoadNetwork(
     }
 
     if (nullptr == context) {
+        auto p1 = MY_PROFILE_ARGS("LoadExeNetworkImpl", {{"network.getName()", network.getName()}});
         impl = LoadExeNetworkImpl(network, config);
     } else {
+        auto p1 = MY_PROFILE("LoadExeNetworkImpl");
         impl = LoadExeNetworkImpl(network, context, config);
     }
 
+    auto p1 = MyProfile("SetExeNetworkInfo" + std::to_string(__LINE__));
     SetExeNetworkInfo(impl, const_map_cast(network.getInputsInfo()), const_map_cast(network.getOutputsInfo()));
     if (function) {
         SetExeNetworkInfo(impl, function);

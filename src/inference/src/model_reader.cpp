@@ -11,6 +11,7 @@
 #include "openvino/frontend/manager.hpp"
 #include "openvino/util/file_util.hpp"
 #include "transformations/utils/utils.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace {
 
@@ -92,6 +93,7 @@ std::shared_ptr<ov::Model> read_model(const std::string& modelPath,
                                       const std::string& binPath,
                                       const std::vector<ov::Extension::Ptr>& extensions,
                                       bool enable_mmap) {
+    auto p = MY_PROFILE_ARGS("read_model", {{"enable_mmap", std::to_string(enable_mmap)}});
     // Fix unicode name
 #if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
     std::wstring model_path = ov::util::string_to_wstring(modelPath.c_str());
@@ -116,14 +118,28 @@ std::shared_ptr<ov::Model> read_model(const std::string& modelPath,
     }
     params.emplace_back(enable_mmap);
 
-    FE = manager.load_by_model(params);
+    {
+        auto p1 = MY_PROFILE_ARGS("manager.load_by_model", {{"desc", "return real frontend"}});
+        FE = manager.load_by_model(params);
+    }
     if (FE) {
-        FE->add_extension(extensions);
+        {
+            auto p1 = MY_PROFILE("FE->add_extension");
+            FE->add_extension(extensions);
+        }
+
+        auto p1 = MY_PROFILE("FE->load");
         inputModel = FE->load(params);
     }
 
     if (inputModel) {
-        auto model = FE->convert(inputModel);
+        std::shared_ptr<ov::Model> model;
+        {
+            auto p1 = MY_PROFILE("FE->convert");
+            model = FE->convert(inputModel);
+        }
+        
+        auto p2 = MY_PROFILE("update_v10_model");
         update_v10_model(model);
         return model;
     }

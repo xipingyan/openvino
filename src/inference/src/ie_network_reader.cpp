@@ -36,6 +36,7 @@
 #include "so_ptr.hpp"
 #include "transformations/rt_info/old_api_map_order_attribute.hpp"
 #include "transformations/utils/utils.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace InferenceEngine {
 
@@ -335,7 +336,10 @@ CNNNetwork details::ReadNetwork(const std::string& modelPath,
     }
     params.emplace_back(enable_mmap);
 
-    FE = manager.load_by_model(params);
+    {
+        auto p0 = MY_PROFILE("manager.load_by_model");
+        FE = manager.load_by_model(params);
+    }
     if (FE) {
         FE->add_extension(ov_exts);
         inputModel = FE->load(params);

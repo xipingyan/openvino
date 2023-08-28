@@ -31,6 +31,7 @@
 #include "ops_bridge.hpp"
 #include "transformations/resolve_names_collisions.hpp"
 #include "utils/common.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 using namespace ov;
 using namespace ov::frontend::onnx;
@@ -55,6 +56,7 @@ ONNX_FRONTEND_C_API void* get_front_end_data() {
 }
 
 InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& variants) const {
+    auto p = MY_PROFILE_ARGS("FrontEnd::load_impl", {{"FE", "ONNX"}});
     if (variants.empty()) {
         return nullptr;
     }

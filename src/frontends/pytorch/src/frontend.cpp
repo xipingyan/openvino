@@ -42,6 +42,7 @@
 #include "transforms/string_equality_replacer.hpp"
 #include "transforms/tuple_unpack_replacer.hpp"
 #include "translate_session.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace ov {
 namespace frontend {
@@ -253,6 +254,7 @@ bool FrontEnd::supported_impl(const std::vector<ov::Any>& variants) const {
 }
 
 ov::frontend::InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& variants) const {
+    auto p = MY_PROFILE_ARGS("FrontEnd::load_impl", {{"FE", "Pytorch"}});
     // Last boolean flag in `variants` (if presented) is reserved for FE configuration
     size_t extra_variants_num = variants.size() > 0 && variants[variants.size() - 1].is<bool>() ? 1 : 0;
     FRONT_END_GENERAL_CHECK(variants.size() == 1 + extra_variants_num,

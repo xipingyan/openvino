@@ -11,6 +11,7 @@
 #include "ie_icore.hpp"
 #include "openvino/runtime/iremote_context.hpp"
 #include "threading/ie_executor_manager.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace InferenceEngine {
 
@@ -36,6 +37,7 @@ const std::shared_ptr<InferenceEngine::IExecutableNetworkInternal>& IPluginWrapp
 
 std::shared_ptr<ov::ICompiledModel> IPluginWrapper::compile_model(const std::shared_ptr<const ov::Model>& model,
                                                                   const ov::AnyMap& properties) const {
+    auto p = MyProfile("IPluginWrapper::compile_model");
     auto exec_network =
         m_old_plugin->LoadNetwork(ov::legacy_convert::convert_model(model, is_new_api()), ov::any_copy(properties));
     return ov::legacy_convert::convert_compiled_model(update_exec_network(exec_network))._ptr;

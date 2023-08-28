@@ -9,10 +9,12 @@
 
 #include "openvino/util/file_util.hpp"
 #include "openvino/util/shared_object.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace ov {
 namespace util {
 std::shared_ptr<void> load_shared_object(const char* path) {
+    auto p = MY_PROFILE_ARGS("load_shared_object", {{"path", path}});
     auto shared_object = std::shared_ptr<void>{dlopen(path, RTLD_NOW), [](void* shared_object) {
                                                    if (shared_object != nullptr) {
                                                        if (0 != dlclose(shared_object)) {

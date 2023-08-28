@@ -13,6 +13,7 @@
 
 #include "openvino/core/validation_util.hpp"
 #include "openvino/opsets/opset.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 using namespace ngraph;
 using namespace InferenceEngine;
@@ -38,6 +39,7 @@ void parse_pre_process(pugi::xml_node& root,
      * </pre-process>
      */
 
+    auto p = MY_PROFILE("parse_pre_process");
     auto ppNode = root.child("pre-process");
     if (ppNode.empty()) {
         return;
@@ -204,6 +206,7 @@ public:
                      const std::unordered_map<ov::DiscreteTypeInfo, ov::BaseOpExtension::Ptr>& extensions)
         : m_weights(weights),
           m_extensions(extensions) {
+        auto p = MY_PROFILE_ARGS("InputModelIRImpl", {{"Desc", "Load IR xml"}});
         pugi::xml_parse_result res = m_xml_doc.load(stream);
         if (res.status != pugi::status_ok) {
             IE_THROW() << res.description() << " at offset " << res.offset;
@@ -228,6 +231,7 @@ std::shared_ptr<Function> InputModel::convert() {
 }
 
 std::shared_ptr<Function> InputModel::InputModelIRImpl::convert() {
+    auto p = MY_PROFILE("InputModel::InputModelIRImpl::convert");
     std::unordered_map<std::string, std::shared_ptr<ngraph::Variable>> variables;
 
     // Load default opsets

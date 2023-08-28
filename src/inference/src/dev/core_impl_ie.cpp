@@ -23,6 +23,7 @@
 #include "openvino/runtime/itensor.hpp"
 #include "openvino/runtime/make_tensor.hpp"
 #include "openvino/util/common_util.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 bool ov::CoreImpl::isNewAPI() const {
     return is_new_api();

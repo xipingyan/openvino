@@ -7,6 +7,7 @@
 #include "openvino/core/except.hpp"
 #include "openvino/runtime/icompiled_model.hpp"
 #include "openvino/runtime/properties.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 #define OV_COMPILED_MODEL_CALL_STATEMENT(...)                                \
     OPENVINO_ASSERT(_impl != nullptr, "CompiledModel was not initialized."); \
@@ -103,6 +104,7 @@ const ov::Output<const ov::Node>& CompiledModel::output(const std::string& tenso
 }
 
 InferRequest CompiledModel::create_infer_request() {
+    auto p = MY_PROFILE("CompiledModel::create_infer_request");
     OV_COMPILED_MODEL_CALL_STATEMENT(return {_impl->create_infer_request(), _so});
 }
 

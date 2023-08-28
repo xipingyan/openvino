@@ -12,6 +12,7 @@
 #include "openvino/runtime/device_id_parser.hpp"
 #include "openvino/runtime/iremote_context.hpp"
 #include "openvino/util/file_util.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 namespace {
 std::string resolve_extension_path(const std::string& path) {
@@ -96,6 +97,7 @@ std::shared_ptr<ov::Model> Core::read_model(const std::wstring& model_path, cons
 #endif
 
 std::shared_ptr<ov::Model> Core::read_model(const std::string& model_path, const std::string& bin_path) const {
+    auto p = MY_PROFILE_ARGS("Core::read_model", {{"model_path", model_path}, {"bin_path", bin_path}});
     OV_CORE_CALL_STATEMENT(return _impl->read_model(model_path, bin_path););
 }
 
@@ -110,6 +112,7 @@ CompiledModel Core::compile_model(const std::shared_ptr<const ov::Model>& model,
 CompiledModel Core::compile_model(const std::shared_ptr<const ov::Model>& model,
                                   const std::string& device_name,
                                   const AnyMap& config) {
+    auto p = MY_PROFILE_ARGS("Core::compile_model", {{"device_name", device_name}});
     OV_CORE_CALL_STATEMENT({
         auto exec = _impl->compile_model(model, device_name, config);
         return {exec._ptr, exec._so};

@@ -12,6 +12,7 @@
 #include "openvino/util/log.hpp"
 #include "plugin_loader.hpp"
 #include "utils.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 using namespace ov;
 using namespace ov::frontend;
@@ -148,6 +149,7 @@ private:
     }
 
     FrontEnd::Ptr search_priority(const std::vector<ov::Any>& variants) {
+        auto p = MY_PROFILE("search_priority");
         // Map between file extension and suitable frontend
         static const std::map<std::string, FrontEndNames> priority_fe_extensions = {
             {".xml", {"ir", "ir"}},
@@ -193,6 +195,7 @@ private:
             }
         }
         for (const auto& priority_info : priority_list) {
+            auto p2 = MY_PROFILE_ARGS("priority_list", {{"priority_info.file_name", priority_info.file_name}});
             auto plugin_it = std::find_if(m_plugins.begin(), m_plugins.end(), [&priority_info](const PluginInfo& info) {
                 return name_match(info, priority_info);
             });
@@ -201,6 +204,7 @@ private:
             }
             auto& plugin_info = *plugin_it;
             if (!plugin_info.is_loaded()) {
+                auto p3 = MY_PROFILE("plugin_info.load");
                 if (!plugin_info.load()) {
                     // If standard plugin can't be loaded, it can also be ok (incompatible version, etc)
                     continue;
@@ -210,6 +214,7 @@ private:
             auto fe = plugin_info.get_creator().m_creator();
             if (fe && fe->supported(variants)) {
                 // Priority FE (e.g. IR) is found and is suitable
+                auto p3 = MY_PROFILE("make_frontend");
                 return make_frontend(*plugin_it);
             }
         }

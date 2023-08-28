@@ -12,6 +12,7 @@
 #include "openvino/frontend/place.hpp"
 #include "plugin_loader.hpp"
 #include "utils.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 using namespace ov;
 using namespace ov::frontend;
@@ -41,6 +42,7 @@ bool FrontEnd::supported_impl(const std::vector<ov::Any>& variants) const {
 }
 
 InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& variants) const {
+    auto p = MY_PROFILE("FrontEnd::load_impl");
     FRONT_END_CHECK_IMPLEMENTED(m_actual, load_impl);
     auto model = std::make_shared<InputModel>();
     model->m_shared_object = m_shared_object;
