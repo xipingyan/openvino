@@ -7,6 +7,7 @@
 #include "cpu/x64/jit_generator.hpp"
 #include "openvino/core/parallel.hpp"
 #include "shape_inference/shape_inference_pass_through.hpp"
+#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace dnnl::impl::cpu::x64;
@@ -251,6 +252,7 @@ void Input::cloneBlobIfRequired() {
     }
 
     auto cloneBlob = [&, this] () {
+        auto p3 = MY_PROFILE("cloneBlob");
         MemoryPtr memory;
 
         // CVS-74980

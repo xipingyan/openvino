@@ -98,6 +98,7 @@
 #include "transformations/transpose_sinking/ts_shape_of.hpp"
 #include "utils/ngraph_transformation.hpp"
 #include "utils/print_model.hpp"
+#include "utils/my_profiler.hpp"
 
 // LPT transformations
 #include "low_precision/add.hpp"

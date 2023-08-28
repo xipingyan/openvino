@@ -3,6 +3,7 @@
 //
 
 #include "plugin.h"
+#include "utils/my_profiler.hpp"
 
 #include "internal_properties.hpp"
 #include "itt.h"
@@ -244,6 +245,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Plugin::compile_model");
     CREATE_DEBUG_TIMER(debugLoadTimer);
 
+    auto p0 = MyProfile("Engine::LoadExeNetworkImpl:" + std::to_string(__LINE__));
     // verification of supported input
     for (const auto& ii : model->inputs()) {
         auto input_precision = ii.get_element_type();
@@ -332,6 +334,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
             denormals_as_zero(false);
         }
     }
+
     return std::make_shared<CompiledModel>(cloned_model, shared_from_this(), conf, false);
 }
 

@@ -30,6 +30,8 @@
 #include <dnnl_debug.h>
 #include "utils/general_utils.h"
 #include "utils/cpu_utils.hpp"
+#include "utils/verbose.h"
+#include "utils/my_profiler.hpp"
 #include "nodes/common/cpu_convert.h"
 #include "memory_desc/cpu_memory_desc_utils.h"
 #include "memory_desc/dnnl_blocked_memory_desc.h"
@@ -1319,6 +1321,7 @@ Node* Node::NodesFactory::create(const std::shared_ptr<ov::Node>& op, const Grap
     Node *newNode = nullptr;
     std::string errorMessage;
     if (newNode == nullptr) {
+        auto p1 = MY_PROFILE("createNodeIfRegistered_2");
         try {
             std::unique_ptr<Node> ol(createNodeIfRegistered(intel_cpu, TypeFromName(op->get_type_name()), op, context));
             if (ol != nullptr && ol->created())
@@ -1333,6 +1336,7 @@ Node* Node::NodesFactory::create(const std::shared_ptr<ov::Node>& op, const Grap
     }
 
     if (newNode == nullptr) {
+        auto p1 = MY_PROFILE("new Reference:" + op->get_name());
         try {
             std::unique_ptr<Node> ol(new Reference(op, context, errorMessage));
             if (ol != nullptr && ol->created())

@@ -16,6 +16,7 @@
 #include "convert.h"
 #include <common/primitive_hashing_utils.hpp>
 #include <shape_inference/shape_inference_pass_through.hpp>
+#include "utils/my_profiler.hpp"
 
 #include "convert.h"
 #include "cpu/x64/cpu_isa_traits.hpp"
@@ -448,6 +449,7 @@ std::string Reorder::getReorderArgs(const MemoryDesc &parentDesc, const MemoryDe
 }
 
 void Reorder::reorderData(const IMemory &input, const IMemory &output, MultiCachePtr cache) {
+    auto p = MY_PROFILE("Reorder::reorderData");
     if (!input.getDesc().isDefined() || !output.getDesc().isDefined())
         OPENVINO_THROW("Can't reorder data with dynamic shapes");
 

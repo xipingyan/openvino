@@ -49,6 +49,9 @@
 #include "openvino/runtime/threading/cpu_streams_executor.hpp"
 #include "openvino/core/parallel.hpp"
 
+#include "utils/my_profiler.hpp"
+#include "memory_desc/cpu_memory_desc_utils.h"
+
 #if (OV_THREAD == OV_THREAD_TBB || OV_THREAD == OV_THREAD_TBB_AUTO)
 #    include <tbb/task.h>
 #endif
@@ -72,11 +75,17 @@ void Graph::CreateGraph(NET &net, const GraphContext::CPtr ctx) {
         ForgetGraphData();
 
     context = ctx;
+
     m_stream = dnnl::stream(getEngine());
 
-    Replicate(net);
-
-    InitGraph();
+    {
+        auto p = MY_PROFILE("Replicate");
+        Replicate(net);
+    }
+    {
+        auto p = MY_PROFILE("InitGraph");
+        InitGraph();
+    }
 
     CPU_DEBUG_CAP_ENABLE(serialize(*this));
 }
@@ -85,6 +94,7 @@ void Graph::CreateGraph(const std::vector<NodePtr>& graphNodes,
                         const std::vector<EdgePtr>& graphEdges,
                         const GraphContext::CPtr ctx,
                         std::string name) {
+    auto p = MY_PROFILE_ARGS("CreateGraph", {{"name of subgraph", name}});
     if (IsReady())
         ForgetGraphData();
 
@@ -109,7 +119,10 @@ void Graph::CreateGraph(const std::vector<NodePtr>& graphNodes,
         }
     }
 
-    InitGraph();
+    {
+        auto p1 = MY_PROFILE("InitGraph");
+        InitGraph();
+    }
 
     CPU_DEBUG_CAP_ENABLE(serialize(*this));
 }
@@ -380,6 +393,7 @@ void Graph::InitGraph(bool optimize) {
 void Graph::InitNodes() {
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::InitNodes");
     for (auto &node : graphNodes) {
+        auto p = MY_PROFILE(node->getName()+"->init()");
         node->init();
     }
 }
@@ -1148,12 +1162,15 @@ void Graph::PullOutputData(std::unordered_map<std::size_t, ov::SoPtr<ITensor>>& 
 }
 
 void Graph::InferStatic(SyncInferRequest* request) {
+    auto p0 = MY_PROFILE("InferStatic");
     for (const auto& node : m_executableGraphNodes) {
         VERBOSE(node, getConfig().debugCaps.verbose);
         PERF(node, getConfig().collectPerfCounters);
 
         if (request)
             request->throw_if_canceled();
+
+        auto p = MY_PROFILE_ARGS(node->getTypeStr(), {{"name", node->getName()}});
         ExecuteNode(node, m_stream);
     }
 }
@@ -1361,6 +1378,7 @@ public:
 
 template<typename UpdateStrategy>
 void Graph::InferDynamic(SyncInferRequest* request, UpdateStrategy&& update) {
+    auto p0 = MY_PROFILE("InferDynamic");
     size_t inferCounter = 0;
     for (auto stopIndx : m_executableSyncNodesInds) {
         update(stopIndx);
@@ -1373,6 +1391,7 @@ void Graph::InferDynamic(SyncInferRequest* request, UpdateStrategy&& update) {
             if (request)
                 request->throw_if_canceled();
             try {
+                auto p = MY_PROFILE_ARGS(node->getTypeStr(), {{"name", node->getName()}});
                 ExecuteNode(node, m_stream);
             } catch (const std::exception& exp) {
                 OPENVINO_THROW(node, exp.what());
