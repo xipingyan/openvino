@@ -21,6 +21,7 @@
 #include "shape_validation.hpp"
 #include "shared_node_info.hpp"
 #include "tensor_conversion_util.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 using namespace std;
 
@@ -387,9 +388,11 @@ const ov::op::AutoBroadcastSpec& ov::Node::get_autob() const {
 
 namespace ov {
 ostream& operator<<(ostream& out, const Node& node) {
+    auto p = MY_PROFILE_ARGS("operator<<", {{"name", node.get_friendly_name()}});
     return node.write_description(out, 1);
 }
 ostream& operator<<(ostream& out, const Node* node) {
+    auto p = MY_PROFILE_ARGS("operator<<", {{"name", node->get_friendly_name()}});
     return node->write_description(out, 1);
 }
 }  // namespace ov

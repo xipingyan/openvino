@@ -26,6 +26,7 @@
 #include "transformations/hash.hpp"
 #include "transformations/rt_info/disable_fp16_compression.hpp"
 #include "transformations/rt_info/primitives_priority_attribute.hpp"
+#include "openvino/util/my_profiler.hpp"
 
 OPENVINO_SUPPRESS_DEPRECATED_START
 namespace {  // helpers
@@ -100,10 +101,22 @@ public:
         const FilePosition write_pos = m_binary_output.tellp();
         const auto offset = write_pos - m_blob_offset;
         *new_size = size;
+        size_t aligned_offset = (size + 3) / 4 * 4 - size;
+        const char* tmp_str = "0000";
+        auto str_aligned = offset%sizeof(float)==0? "1" : "0";
+
+        auto p = MY_PROFILE_ARGS("write:" + std::string(str_aligned), {{"ptr aligned", str_aligned}, 
+            {"size", std::to_string(size)},
+            {"offset", std::to_string(offset)},
+            {"new_size", std::to_string(*new_size)},
+            {"compress_to_fp16", std::to_string(compress_to_fp16)}});
 
         if (!m_enable_compression || compress_to_fp16) {
             write_with_optional_fp16_compression(ptr, size, new_size, compress_to_fp16, src_type);
-            return offset;
+            if(aligned_offset) {
+                m_binary_output.write(tmp_str, aligned_offset);
+            }
+            return offset + aligned_offset;
         }
         // TODO: Find a way to keep both types of compression (m_enable_compression and compress_to_fp16)
         // simultaneously. Disabled usual compression by m_enable_compression for those constants that are requested to
@@ -128,7 +141,10 @@ public:
         write_with_optional_fp16_compression(ptr, size, new_size, compress_to_fp16, src_type);
         m_hash_to_file_positions.insert({hash, {offset, static_cast<void const*>(ptr)}});
 
-        return offset;
+        if(aligned_offset) {
+            m_binary_output.write(tmp_str, aligned_offset);
+        }
+        return offset + aligned_offset;
     }
 
 private:
@@ -1155,6 +1171,7 @@ void serializeFunc(std::ostream& xml_file,
                    ov::pass::Serialize::Version ver,
                    const std::map<std::string, ngraph::OpSet>& custom_opsets,
                    bool deterministic = false) {
+    auto p = MY_PROFILE("serializeFunc");
     auto version = static_cast<int64_t>(ver);
 
     auto& rt_info = model->get_rt_info();
@@ -1189,6 +1206,7 @@ void serializeFunc(std::ostream& xml_file,
 namespace ov {
 bool pass::Serialize::run_on_model(const std::shared_ptr<ov::Model>& model) {
     RUN_ON_FUNCTION_SCOPE(Serialize);
+    auto p = MY_PROFILE_ARGS("pass::Serialize::run_on_model", {{"m_xmlPath", m_xmlPath}, {"m_binPath", m_binPath}});
     if (m_xmlFile && m_binFile) {
         serializeFunc(*m_xmlFile, *m_binFile, model, m_version, m_custom_opsets);
     } else {
