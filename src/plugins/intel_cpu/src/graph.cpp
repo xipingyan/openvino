@@ -44,6 +44,7 @@
 #include "utils/cpu_utils.hpp"
 #include "utils/verbose.h"
 #include "memory_desc/cpu_memory_desc_utils.h"
+#include "utils/dump_profile.hpp"
 
 #include <openvino/core/model.hpp>
 #include <openvino/core/node.hpp>
@@ -1121,6 +1122,7 @@ void Graph::PullOutputData(BlobMap &out) {
 
 void Graph::InferStatic(InferRequestBase* request) {
     dnnl::stream stream(getEngine());
+    MY_PROFILE_VAR_MEM(p, "InferStatic");
 
     for (const auto& node : executableGraphNodes) {
         VERBOSE(node, getConfig().debugCaps.verbose);
@@ -1329,6 +1331,7 @@ public:
 
 void Graph::InferDynamic(InferRequestBase* request) {
     dnnl::stream stream(getEngine());
+    MY_PROFILE_VAR_MEM(p, "InferDynamic");
 
     std::set<size_t> syncIndsWorkSet;
     for (const auto& nodeIndx : syncNodesInds) {
@@ -1348,7 +1351,11 @@ void Graph::InferDynamic(InferRequestBase* request) {
     size_t inferCounter = 0;
 
     for (auto stopIndx : syncIndsWorkSet) {
-        updateNodes->run(stopIndx);
+        {
+            // MY_PROFILE_VAR_MEM(p, "updateNodes");
+            updateNodes->run(stopIndx);
+        }
+
         for (; inferCounter < stopIndx; ++inferCounter) {
             auto& node = executableGraphNodes[inferCounter];
             VERBOSE(node, getConfig().debugCaps.verbose);
@@ -1356,6 +1363,8 @@ void Graph::InferDynamic(InferRequestBase* request) {
 
             if (request)
                 request->ThrowIfCanceled();
+
+            // MY_PROFILE_VAR_MEM(p, node->getName().c_str());
             ExecuteNode(node, stream);
         }
     }
