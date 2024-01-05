@@ -64,6 +64,7 @@ Graph::~Graph() {
 template<typename NET>
 void Graph::CreateGraph(NET &net, const GraphContext::CPtr ctx) {
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "CreateGraph");
+    auto p = MY_PROFILE("CreateGraph");
 
     if (IsReady())
         ForgetGraphData();
@@ -108,6 +109,7 @@ void Graph::CreateGraph(const std::vector<NodePtr>& graphNodes,
 template void Graph::CreateGraph(const std::shared_ptr<const ov::Model>&, const GraphContext::CPtr);
 void Graph::Replicate(const std::shared_ptr<const ov::Model> &model) {
     OV_ITT_SCOPE_CHAIN(FIRST_INFERENCE, taskChain, itt::domains::intel_cpu_LT, "Graph::Replicate", "ov::Model");
+    auto p = MY_PROFILE("Graph::Replicate");
     this->_name = model->get_friendly_name();
     this->reuse_io_tensors = false;
 
@@ -220,6 +222,7 @@ void Graph::Replicate(const std::shared_ptr<const ov::Model> &model) {
 }
 
 void Graph::InitGraph() {
+    auto p = MY_PROFILE("Graph::InitGraph");
     GraphOptimizer optimizer;
 
     SortTopologically();
@@ -259,12 +262,14 @@ void Graph::InitGraph() {
 
 void Graph::InitNodes() {
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::InitNodes");
+    auto p = MY_PROFILE("Graph::InitNodes");
     for (auto &node : graphNodes) {
         node->init();
     }
 }
 
 void Graph::InitDescriptors() {
+    auto p = MY_PROFILE("Graph::InitDescriptors");
     OV_ITT_SCOPE_CHAIN(FIRST_INFERENCE, taskChain, itt::domains::intel_cpu_LT, "InitDescriptors", "Prepare");
 
     for (auto &node : graphNodes) {
@@ -305,7 +310,8 @@ void Graph::InitDescriptors() {
 }
 
 void Graph::ResolveInplaceDirections() {
-     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Graph::ResolveInplaceDirections");
+    auto p = MY_PROFILE("ResolveInplaceDirections");
+    OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Graph::ResolveInplaceDirections");
 
     for (auto& node : graphNodes) {
         resolveInPlaceDirection(node);
@@ -314,6 +320,7 @@ void Graph::ResolveInplaceDirections() {
 
 
 void Graph::InitOptimalPrimitiveDescriptors() {
+    auto p = MY_PROFILE("InitOptimalPrimitiveDescriptors");
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Graph::InitOptimalPrimitiveDescriptors");
     for (auto &node : graphNodes) {
         OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, node->profiling.initOptimalPrimitiveDescriptor);
@@ -325,6 +332,7 @@ void Graph::InitOptimalPrimitiveDescriptors() {
 }
 
 void Graph::ExtractExecutableNodes() {
+    auto p = MY_PROFILE("ExtractExecutableNodes");
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::ExtractExecutableNodes");
     for (const auto& graphNode : graphNodes) {
         if ((!graphNode->isConstant() && CPU_DEBUG_CAPS_ALWAYS_TRUE(graphNode->isExecutable())) || graphNode->isDynamicNode()) {
@@ -343,6 +351,7 @@ void Graph::ExtractExecutableNodes() {
 }
 
 void Graph::CreatePrimitivesAndExecConstants() const {
+    auto p = MY_PROFILE("CreatePrimitivesAndExecConstants");
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::CreatePrimitivesAndExecConstants");
     dnnl::stream stream(getEngine());
 
@@ -424,6 +433,7 @@ static bool isReorderAvailable(const MemoryDescPtr& parentDesc, const MemoryDesc
 }
 
 void Graph::ResolveEdgeConflicts() {
+    auto p = MY_PROFILE("ResolveEdgeConflicts");
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::ResolveEdgeConflicts");
 
     ptrdiff_t numberOfEdges = static_cast<ptrdiff_t>(graphEdges.size());
@@ -860,6 +870,7 @@ void Graph::AllocateWithReuse() {
 }
 
 void Graph::Allocate() {
+    auto p = MY_PROFILE("Allocate");
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::Allocate");
 
     //resolve inplace dead end nodes
@@ -890,6 +901,7 @@ void Graph::Allocate() {
 }
 
 bool Graph::ProcessDynNodes() {
+    auto p = MY_PROFILE("ProcessDynNodes");
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::ProcessDynNodes");
 
     bool result = false;
@@ -1309,6 +1321,7 @@ void Graph::Infer(SyncInferRequest* request) {
 
 void Graph::SortTopologically() {
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "Graph::SortTopologically");
+    auto p = MY_PROFILE("Graph::SortTopologically");
 
     auto sort = [](const std::vector<NodePtr>& nodes) {
         std::unordered_set<NodePtr> visited;
@@ -1832,6 +1845,7 @@ void Graph::resolveInPlaceDirection(const NodePtr& node) const {
 }
 
 void Graph::SearchInternalStateNodes() {
+    auto p = MY_PROFILE("SearchInternalStateNodes");
     for (auto&& node : graphNodes) {
         if (node->getType() == Type::MemoryInput) {
             auto cur_node = std::dynamic_pointer_cast<node::MemoryStateNode>(node);
