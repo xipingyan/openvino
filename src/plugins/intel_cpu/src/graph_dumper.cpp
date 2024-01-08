@@ -220,11 +220,10 @@ void serialize(const Graph &graph) {
 void serializeToXML(const Graph &graph, const std::string& path) {
     if (path.empty())
         return;
-    static int g_idx = 0;
-    std::string xmlPath = std::to_string(g_idx++) + "_" + path;
+
     std::string binPath;
     ov::pass::Manager manager;
-    manager.register_pass<ov::pass::Serialize>(xmlPath,
+    manager.register_pass<ov::pass::Serialize>(path,
                                                binPath,
                                                ov::pass::Serialize::Version::IR_V10);
     manager.run_passes(graph.dump());
