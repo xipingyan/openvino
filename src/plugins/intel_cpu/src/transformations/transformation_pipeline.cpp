@@ -85,6 +85,7 @@
 #include "transformations/init_node_info.hpp"
 #include "utils/ngraph_transformation.hpp"
 #include "utils/print_model.hpp"
+#include "utils/my_profiler.hpp"
 
 // LPT transformations
 #include "low_precision/add.hpp"
@@ -210,6 +211,7 @@ bool Transformations::fuse_type_to_convert(const std::shared_ptr<ov::Node>& node
 }
 
 void Transformations::UpToLpt() {
+    auto p = MY_PROFILE("Transformations::UpToLpt()");
     const bool useLpt = enableLpt &&
         ov::pass::low_precision::LowPrecision::isFunctionQuantized(model) &&
         CPU_DEBUG_CAP_IS_TRANSFORMATION_ENABLED(config.debugCaps, Lpt);
@@ -235,6 +237,7 @@ void Transformations::UpToLpt() {
 }
 
 void Transformations::CpuSpecificOpSet(void) {
+    auto p = MY_PROFILE("Transformations::CpuSpecificOpSet()");
     CPU_DEBUG_CAP_TRANSFORMATION_SCOPE(this, Specific);
 
     ConvertToCPUSpecificOpset(model);
@@ -625,6 +628,7 @@ void Transformations::Lpt(const bool hasINT16orINT32Levels, const std::vector<ov
 }
 
 void Transformations::PostLpt() {
+    auto p = MY_PROFILE("Transformations::PostLpt()");
     CPU_DEBUG_CAP_TRANSFORMATION_SCOPE(this, PostLpt);
 
     ov::pass::Manager postLPTPassManager;
@@ -835,6 +839,7 @@ void Transformations::PostSnippets(void) {
 }
 
 void Transformations::Snippets(void) {
+    auto p = MY_PROFILE("Transformations::Snippets()");
     const bool useSnippets = snippetsMode != Config::SnippetsMode::Disable &&
         CPU_DEBUG_CAP_IS_TRANSFORMATION_ENABLED(config.debugCaps, Snippets);
     if (!useSnippets)
