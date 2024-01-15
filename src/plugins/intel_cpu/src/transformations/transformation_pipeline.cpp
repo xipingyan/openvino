@@ -139,7 +139,7 @@ namespace intel_cpu {
 
 using const_node_ptr = const std::shared_ptr<const ov::Node>;
 
-bool Transformations::is_decompression_multiply(const_node_ptr& node) const {
+bool Transformations::is_decompression_multiply_or_gather(const_node_ptr& node) const {
     auto get_single_consumer = [](const_node_ptr& node) -> std::shared_ptr<ov::Node> {
         const auto consumers = node->get_output_target_inputs(0);
         if (consumers.size() != 1)
@@ -161,8 +161,13 @@ bool Transformations::is_decompression_multiply(const_node_ptr& node) const {
     }
     if (consumer != nullptr && ov::is_type<ov::opset1::Convert>(consumer)) {
         consumer = get_single_consumer(consumer);
-        if (consumer != nullptr && ov::is_type<ov::opset1::MatMul>(consumer)) {
-            return true;
+        if (consumer != nullptr) {
+            if (ov::is_type<ov::opset1::MatMul>(consumer)) {
+                return true;
+            }
+            if (ov::is_type<ov::opset8::Gather>(consumer)) {
+                return true;
+            }
         }
     }
     return false;
@@ -262,7 +267,7 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
     // Ticket 124834: set fold_subtract_const to false when cpu_convert supports i4/u4/nf4 precisions
     CPU_REGISTER_PASS_X64(decompression_handling_manager, ov::pass::MarkDequantizationSubgraph, decompression_precisions, true);
     CPU_SET_CALLBACK_X64(decompression_handling_manager, [&](const_node_ptr &node) -> bool {
-        return !is_decompression_multiply(node);
+        return !is_decompression_multiply_or_gather(node);
     }, ov::pass::MarkDequantizationSubgraph);
     decompression_handling_manager.run_passes(model);
 
@@ -603,19 +608,19 @@ void Transformations::Lpt(const bool hasINT16orINT32Levels, const std::vector<ov
         const auto& consumers = node->get_output_target_inputs(0);
         if (consumers.size() == 1) {
             const auto consumer = consumers.begin()->get_node()->shared_from_this();
-            return ov::is_type<ov::opset1::Multiply>(consumer) && is_decompression_multiply(consumer);
+            return ov::is_type<ov::opset1::Multiply>(consumer) && is_decompression_multiply_or_gather(consumer);
         }
         return false;
     }, FoldConvertTransformation);
 
     CPU_SET_CALLBACK_X64(lptManager, [&](const_node_ptr& node) -> bool {
         if (ov::is_type<ov::opset1::Multiply>(node)) {
-            return ov::is_type<ov::opset1::Multiply>(node) && is_decompression_multiply(node);
+            return ov::is_type<ov::opset1::Multiply>(node) && is_decompression_multiply_or_gather(node);
         } else if (ov::is_type<ov::opset1::Subtract>(node)) {
             const auto& consumers = node->get_output_target_inputs(0);
             if (consumers.size() == 1) {
                 const auto consumer = consumers.begin()->get_node()->shared_from_this();
-                return ov::is_type<ov::opset1::Multiply>(consumer) && is_decompression_multiply(consumer);
+                return ov::is_type<ov::opset1::Multiply>(consumer) && is_decompression_multiply_or_gather(consumer);
             }
         }
         return false;
