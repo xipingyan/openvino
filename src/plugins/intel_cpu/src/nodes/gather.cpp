@@ -9,6 +9,7 @@
 #include "gather.h"
 #include "openvino/opsets/opset1.hpp"
 #include "common/cpu_memcpy.h"
+#include "common/cpu_convert.h"
 #include "utils/general_utils.h"
 #include "kernels/x64/gather_uni_kernel.hpp"
 #include <partitioned_mem_mgr.h>
@@ -621,6 +622,30 @@ void Gather::resolveInPlaceEdges(Edge::LOOK look) {
         auto newMem = std::make_shared<Memory>(getEngine(), config.outConfs[outputPort].getMemDesc(), memMngr);
 
         childEdge->reuse(newMem);
+    }
+}
+
+void Gather::fuseDecompressionMultiply(const MemoryCPtr& memory) {
+    fuseDecompressionConstant(memory, decompressionMultiplyPtr);
+}
+
+void Gather::fuseDecompressionSubtract(const MemoryCPtr& memory) {
+    fuseDecompressionConstant(memory, decompressionSubtractPtr);
+}
+
+void Gather::fuseDecompressionConstant(const MemoryCPtr& memory, MemoryCPtr& decompressionValuesPtr) {
+    const auto decompression_prc = ov::element::f32;
+    if (memory->getDesc().getPrecision() == decompression_prc) {
+        decompressionValuesPtr = memory;
+    } else {
+        DnnlBlockedMemoryDesc memoryDesc(decompression_prc, memory->getShape());
+        decompressionValuesPtr = std::make_shared<Memory>(getEngine(), memoryDesc, nullptr, false);
+        const auto elementsCount = memory->getDescWithType<BlockedMemoryDesc>()->getPaddedElementsCount();
+        cpu_convert(memory->getData(),
+                    decompressionValuesPtr->getData(),
+                    DnnlExtensionUtils::DataTypeToElementType(memory->getDataType()),
+                    ov::element::f32,
+                    elementsCount);
     }
 }
 
