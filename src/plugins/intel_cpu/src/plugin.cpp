@@ -559,7 +559,6 @@ Engine::compile_model(const std::shared_ptr<const ov::Model>& model, const ov::A
     Transformations transformations(cloned_model, enableLPT, inferencePrecision, is_legacy_api(), snippetsMode, conf);
 
     transformations.UpToLpt();
-    DEBUG_LOG(PrintableModel(*cloned_model, "org2_"));
 
     if (!is_cpu_map_available()) {
         apply_performance_hints(config, cloned_model);

@@ -516,17 +516,17 @@ void GraphOptimizer::FuseFCAndWeightsDecompression(Graph &graph) {
 }
 
 void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
-    auto& graphNodes = graph.GetNodes();
+    std::set<ov::element::Type> supportedWeightsPrecisions{ov::element::u8, ov::element::nf4, ov::element::u4, ov::element::i4};
+    const std::set<ov::element::Type> supportedDataPrecisions{ov::element::f32, ov::element::bf16};
     auto expectedNode = [](NodePtr node, Type expectedType) {
         return node->getType() == expectedType && node->getChildEdges().size() == 1;
     };
 
+    auto& graphNodes = graph.GetNodes();
     for (size_t i = 0; i < graphNodes.size(); i++) {
         const auto gatherNode = dynamic_cast<node::Gather*>(graphNodes[i].get());
         if (gatherNode == nullptr)
             continue;
-        std::cout << "---> Found Gather node in " << __FUNCTION__ << ", name=" << gatherNode->getOriginalLayers()
-                  << std::endl;
 
         // Multiply
         const auto multiplyNode = gatherNode->getParentEdgesAtPort(0)[0]->getParent();
@@ -557,27 +557,10 @@ void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
         }
 
         const bool withSubtractConvert = subtractConvertNode != nullptr;
-        const bool withPowerStatic = mulParent->getAlgorithm() == Algorithm::EltwisePowerStatic;
-        NodePtr powerStaticNode;
-        if (withPowerStatic) {
-            powerStaticNode = mulParent;
-            if (auto *eltwiseNode = dynamic_cast<node::Eltwise *>(powerStaticNode.get())) {
-                if (eltwiseNode->getAlpha() != 1 || eltwiseNode->getBeta() != 1)
-                    continue;
-            } else {
-                continue;
-            }
-        }
-
-        // Both operations fallbacks on IP zero-point attribute and cannot be combined
-        if (withSubtract && withPowerStatic)
-            continue;
 
         auto convertNode = mulParent;
         if (withSubtract)
             convertNode = subtractNode->getParentEdgesAtPort(0)[0]->getParent();
-        if (withPowerStatic)
-            convertNode = powerStaticNode->getParentEdgesAtPort(0)[0]->getParent();
 
         if (!expectedNode(convertNode, Type::Convert))
             continue;
@@ -586,7 +569,7 @@ void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
             continue;
 
         // Precision limitations
-        if (supportedDataPrecisions.find(fcNode->getOriginalInputPrecisionAtPort(0)) == supportedDataPrecisions.end())
+        if (supportedDataPrecisions.find(gatherNode->getOriginalInputPrecisionAtPort(0)) == supportedDataPrecisions.end())
             continue;
         if (supportedWeightsPrecisions.find(weightsNode->getOriginalOutputPrecisionAtPort(0)) == supportedWeightsPrecisions.end())
             continue;
@@ -595,29 +578,15 @@ void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
         const auto weightsShape = weightsNode->getOutputShapeAtPort(0);
         if (weightsShape != multiplyNode->getOutputShapeAtPort(0))
             continue;
-        if (reshapeNode && (reshapeNode->getInputShapeAtPort(0).getRank() != 3 || reshapeNode->getOutputShapeAtPort(0).getRank() != 2))
-            continue;
 
+        // Get decompressionConstShape
         VectorDims decompressionConstShape;
-        const auto fcInputWeightsShape = fcNode->getInputShapeAtPort(1);
-        int groupNum = 1;
+        const auto gatherInputWeightsShape = gatherNode->getInputShapeAtPort(0);
+
         // Ordinary case: one decompression group
-        if (fcInputWeightsShape.getRank() == weightsShape.getRank()) {
-            const auto& out_channels = fcInputWeightsShape.getDims()[0];
-            decompressionConstShape = withTranspose ? VectorDims{1, out_channels} : VectorDims{out_channels, 1};
-        } else {
-            // Group decompression case: last 3 dimension (there could be also prepending '1's in the beginning) of weights shape must be:
-            // [N, G, O], if transpose = true
-            // [O, N, G], otherwise.
-            // O - output channels
-            // N - number of groups
-            // G - group size
-            const auto& weights_dims = weightsShape.getStaticDims();
-            const auto& N = withTranspose ? *(weights_dims.rbegin() + 2) : *(weights_dims.rbegin() + 1);
-            const auto& O = withTranspose ? *weights_dims.rbegin() : *(weights_dims.rbegin() + 2);
-            // Group decompression is applied by O and N dims
-            decompressionConstShape = withTranspose ? VectorDims{N, 1, O} : VectorDims{O, N, 1};
-            groupNum = N;
+        if (gatherInputWeightsShape.getRank() == weightsShape.getRank()) {
+            const auto& out_channels = gatherInputWeightsShape.getDims()[0];
+            decompressionConstShape = VectorDims{out_channels, 1};
         }
 
         auto check_decompression_shape = [&decompressionConstShape](const VectorDims& shape_to_check) {
@@ -632,70 +601,55 @@ void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
         if (withSubtract && !check_decompression_shape(subtractConstNode->getOutputShapeAtPort(0).getDims()))
             continue;
 
-        // HW specific shape limitations
-        if (impl::cpu::x64::mayiuse(impl::cpu::x64::avx512_core_amx) &&
-            fcNode->getOriginalInputPrecisionAtPort(0) == ov::element::bf16) {
-            // OneDNN AMX IP implementation has limited shapes support due to performance considerations. As a current solution conditions below are copied
-            // from OneDNN to make sure correct IP impl will be used since fallback one doesn't support weights decompression feature.
-            size_t OC = fcInputWeightsShape.getDims()[0];
-            size_t IC = fcInputWeightsShape.getDims()[1];
-            size_t simdWidth = 16;
-            size_t vnniFactor = 2;
-            size_t maxSize = 512;
-            auto amxRow = vnniFactor * simdWidth;
+        // // HW specific shape limitations
+        // if (impl::cpu::x64::mayiuse(impl::cpu::x64::avx512_core_amx) &&
+        //     gatherNode->getOriginalInputPrecisionAtPort(0) == ov::element::bf16) {
+        //     // OneDNN AMX IP implementation has limited shapes support due to performance considerations. As a current solution conditions below are copied
+        //     // from OneDNN to make sure correct IP impl will be used since fallback one doesn't support weights decompression feature.
+        //     size_t OC = gatherInputWeightsShape.getDims()[0];
+        //     size_t IC = gatherInputWeightsShape.getDims()[1];
+        //     size_t simdWidth = 16;
+        //     size_t vnniFactor = 2;
+        //     size_t maxSize = 512;
+        //     auto amxRow = vnniFactor * simdWidth;
 
-            if ((IC <= amxRow && OC <= amxRow) || (IC <= maxSize && OC <= maxSize && IC % amxRow != 0))
-                continue;
-        }
+        //     if ((IC <= amxRow && OC <= amxRow) || (IC <= maxSize && OC <= maxSize && IC % amxRow != 0))
+        //         continue;
+        // }
 
-        size_t IC = fcInputWeightsShape.getDims()[1];
-        // OneDNN IP primitive provides limited decompression params support
-        if (IC % groupNum != 0 || IC / groupNum < 4) {
-            continue;
-        }
+        // size_t IC = gatherInputWeightsShape.getDims()[1];
+        // // OneDNN IP primitive provides limited decompression params support
+        // if (IC % groupNum != 0 || IC / groupNum < 4) {
+        //     continue;
+        // }
 
         // Fusion processing
         auto *multiplyInputNode = dynamic_cast<node::Input *>(multiplyConstNode.get());
         if (!multiplyInputNode) {
             OPENVINO_THROW("Cannot cast ", multiplyInputNode->getName(), " to Input node.");
         }
-        fcNode->fuseDecompressionMultiply(multiplyInputNode->getMemoryPtr());
+        gatherNode->fuseDecompressionMultiply(multiplyInputNode->getMemoryPtr());
 
         if (withSubtract) {
             auto *subtractInputNode = dynamic_cast<node::Input *>(subtractConstNode.get());
             if (!subtractInputNode) {
                 OPENVINO_THROW("Cannot cast ", subtractInputNode->getName(), " to Input node.");
             }
-            fcNode->fuseDecompressionSubtract(subtractInputNode->getMemoryPtr());
-        }
-        if (withPowerStatic) {
-            auto *eltwiseNode = dynamic_cast<node::Eltwise *>(powerStaticNode.get());
-            if (!eltwiseNode) {
-                OPENVINO_THROW("Cannot cast ", eltwiseNode->getName(), " to Eltwise node.");
-            }
-
-            VectorDims memoryDims(decompressionConstShape.size(), 1);
-            CpuBlockedMemoryDesc memoryDesc(ov::element::f32, Shape(memoryDims));
-            auto memory = std::make_shared<Memory>(graph.getEngine(), memoryDesc, nullptr, false);
-            (static_cast<float *>(memory->getData()))[0] = -1.f * eltwiseNode->getGamma();
-            fcNode->fuseDecompressionSubtract(memory);
+            gatherNode->fuseDecompressionSubtract(subtractInputNode->getMemoryPtr());
         }
 
-        fcNode->addOriginalLayer(multiplyNode->getOriginalLayers());
-        fcNode->addOriginalLayer(convertNode->getOriginalLayers());
+        gatherNode->addOriginalLayer(multiplyNode->getOriginalLayers());
+        gatherNode->addOriginalLayer(convertNode->getOriginalLayers());
 
         if (withSubtractConvert) {
-            fcNode->addOriginalLayer(subtractConvertNode->getOriginalLayers());
+            gatherNode->addOriginalLayer(subtractConvertNode->getOriginalLayers());
             auto subtractConvertEdge = subtractConvertNode->getChildEdges()[0].lock();
             graph.RemoveEdge(subtractConvertEdge);
         }
         if (withSubtract) {
-            fcNode->addOriginalLayer(subtractNode->getOriginalLayers());
+            gatherNode->addOriginalLayer(subtractNode->getOriginalLayers());
             auto subtractConstEdge = subtractConstNode->getChildEdges()[0].lock();
             graph.RemoveEdge(subtractConstEdge);
-        }
-        if (withPowerStatic) {
-            fcNode->addOriginalLayer(powerStaticNode->getOriginalLayers());
         }
 
         auto multiplyConstEdge = multiplyConstNode->getChildEdges()[0].lock();
@@ -706,20 +660,10 @@ void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
             graph.DropNode(subtractConvertNode);
         if (withSubtract)
             graph.DropNode(subtractNode);
-        if (withPowerStatic)
-            graph.DropNode(powerStaticNode);
         graph.DropNode(multiplyNode);
 
         const auto& weightsPrecision = weightsNode->getOriginalOutputPrecisionAtPort(0);
-        if (withTranspose) {
-            transposeNode->setOriginalInputPrecisionAtPort(0, weightsPrecision);
-            transposeNode->setOriginalOutputPrecisionAtPort(0, weightsPrecision);
-        }
-        if (withReshape) {
-            reshapeNode->setOriginalInputPrecisionAtPort(0, weightsPrecision);
-            reshapeNode->setOriginalOutputPrecisionAtPort(0, weightsPrecision);
-        }
-        fcNode->setOriginalInputPrecisionAtPort(1, weightsPrecision);
+        gatherNode->setOriginalInputPrecisionAtPort(0, weightsPrecision);
     }
 }
 
