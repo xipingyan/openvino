@@ -281,6 +281,20 @@ void Gather::prepareParams() {
         }
     }
 
+    // Only for input embedding case (2D vector)
+    canOptimizeInputEmbeddingCase = false;
+    if (getName() == "__module.model.transformer.wte/aten::embedding/Gather") {
+        printf("Debug to here.\n");
+    }
+    if (dataSrcRank == 2 && dataMemPtr->getDesc().getPrecision() == ov::element::u8) {
+        const auto& dataDims = dataMemPtr->getStaticDims();
+        const auto& idxDims = idxMemPtr->getStaticDims();
+        if ((decompressionSubtractPtr != nullptr) && (decompressionMultiplyPtr != nullptr)) {
+            canOptimizeInputEmbeddingCase = true;
+            return;
+        }
+    }
+
     if (!isAxisInputConst) {
         axis = (reinterpret_cast<const int32_t*>(getParentEdgeAt(GATHER_AXIS)->getMemoryPtr()->getData()))[0];
         if (axis < 0)
@@ -333,6 +347,11 @@ void Gather::execute(dnnl::stream strm) {
 
     if (canOptimize1DCase) {
         exec1DCase();
+        return;
+    }
+
+    if (canOptimizeInputEmbeddingCase) {
+        execInputEmbeddingCase();
         return;
     }
 #if defined(OPENVINO_ARCH_X86_64)
@@ -396,6 +415,10 @@ void Gather::executeDynamicImpl(dnnl::stream strm) {
     }
     if (canOptimize1DCase) {
         exec1DCase();
+        return;
+    }
+    if (canOptimizeInputEmbeddingCase) {
+        execInputEmbeddingCase();
         return;
     }
 #if defined(OPENVINO_ARCH_X86_64)
@@ -578,6 +601,35 @@ void Gather::exec1DCase() {
                 ii = axisDim;
         }
         pdst[i] = psrc[ii];
+    }
+}
+
+void Gather::execInputEmbeddingCase() {
+    DEBUG_LOG(getName(), " execInputEmbeddingCase");
+    auto* pdst = reinterpret_cast<float_t*>(getChildEdgeAt(0)->getMemoryPtr()->getData());
+    auto srcMemPtr = getParentEdgeAt(GATHER_DATA)->getMemoryPtr();
+    auto idxMemPtr = getParentEdgeAt(GATHER_INDICES)->getMemoryPtr();
+    const auto* psrc = reinterpret_cast<const uint8_t*>(srcMemPtr->getData());
+    const auto* pidx = reinterpret_cast<const int32_t*>(idxMemPtr->getData());
+
+    const auto* zp = reinterpret_cast<const float_t*>(decompressionSubtractPtr->getData());
+    const auto* scale = reinterpret_cast<const float_t*>(decompressionMultiplyPtr->getData());
+
+    const auto& idxDims = idxMemPtr->getStaticDims();
+    const auto idxCnt = (idxDims.size() == 0) ? 1 : idxDims[0];
+    auto axisDim = srcMemPtr->getStaticDims()[0];
+    auto feaDim = srcMemPtr->getStaticDims()[1];
+    for (size_t i = 0; i < idxCnt; i++) {
+        auto ii = pidx[i];
+        if (ii < 0) {
+            if (reverseIndexing)
+                ii += axisDim;
+            else
+                ii = axisDim;
+        }
+        for (size_t f = 0; f < feaDim; f++) {
+            pdst[i * ii + f] = (static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
+        }
     }
 }
 

@@ -63,6 +63,9 @@ private:
     bool canOptimize1DCase = false;
     void exec1DCase();
 
+    bool canOptimizeInputEmbeddingCase = false;
+    void execInputEmbeddingCase();
+
     bool isDataShapeStat = false;
     bool isIdxShapeStat = false;
     bool isAxisInputConst = false;
