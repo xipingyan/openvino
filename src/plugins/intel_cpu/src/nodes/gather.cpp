@@ -14,6 +14,7 @@
 #include "kernels/x64/gather_uni_kernel.hpp"
 #include <partitioned_mem_mgr.h>
 #include "shape_inference/custom/gather.hpp"
+#include "snippets/utils.hpp"
 
 using namespace dnnl::impl::cpu;
 
@@ -131,10 +132,22 @@ void Gather::initSupportedPrimitiveDescriptors() {
 
     // Implementation desc type will be redefined in the fn prepareParams if a kernel will be created.
     ov::element::Type dataPrecision = getOriginalInputPrecisionAtPort(GATHER_DATA);
+
+    ov::element::Type outputPrecision = getOriginalOutputPrecisionAtPort(0);
+    canOptimizeInputEmbeddingCase = false;
+    if ((decompressionSubtractPtr != nullptr) && (decompressionMultiplyPtr != nullptr)) {
+        canOptimizeInputEmbeddingCase = true;
+        std::cout << "original gather output precision=" << outputPrecision.to_string() << std::endl;
+        if (!one_of(outputPrecision, ov::element::bf16, ov::element::f32)) {
+            outputPrecision = ov::element::f32;
+        }
+        std::cout << "dst gather output precision==" << outputPrecision.to_string() << std::endl;
+    }
+
     addSupportedPrimDesc({{LayoutType::ncsp, dataPrecision},
                           {LayoutType::ncsp, ov::element::i32},
                           {LayoutType::ncsp, ov::element::i32, isAxisInputConst}},
-                         {{LayoutType::ncsp, dataPrecision}},
+                         {{LayoutType::ncsp, canOptimizeInputEmbeddingCase ? outputPrecision : dataPrecision}},
                          ref_any);
 
     // Let's check for the special inPlace memory use case
@@ -281,18 +294,8 @@ void Gather::prepareParams() {
         }
     }
 
-    // Only for input embedding case (2D vector)
-    canOptimizeInputEmbeddingCase = false;
-    if (getName() == "__module.model.transformer.wte/aten::embedding/Gather") {
-        printf("Debug to here.\n");
-    }
-    if (dataSrcRank == 2 && dataMemPtr->getDesc().getPrecision() == ov::element::u8) {
-        const auto& dataDims = dataMemPtr->getStaticDims();
-        const auto& idxDims = idxMemPtr->getStaticDims();
-        if ((decompressionSubtractPtr != nullptr) && (decompressionMultiplyPtr != nullptr)) {
-            canOptimizeInputEmbeddingCase = true;
-            return;
-        }
+    if (canOptimizeInputEmbeddingCase) {
+        return;
     }
 
     if (!isAxisInputConst) {
@@ -606,15 +609,33 @@ void Gather::exec1DCase() {
 
 void Gather::execInputEmbeddingCase() {
     DEBUG_LOG(getName(), " execInputEmbeddingCase");
-    auto* pdst = reinterpret_cast<float_t*>(getChildEdgeAt(0)->getMemoryPtr()->getData());
     auto srcMemPtr = getParentEdgeAt(GATHER_DATA)->getMemoryPtr();
     auto idxMemPtr = getParentEdgeAt(GATHER_INDICES)->getMemoryPtr();
     const auto* psrc = reinterpret_cast<const uint8_t*>(srcMemPtr->getData());
     const auto* pidx = reinterpret_cast<const int32_t*>(idxMemPtr->getData());
 
+    std::cout << "decompressionSubtractPtr type:" << static_cast<int>(decompressionSubtractPtr->getDataType()) << std::endl;
+    std::cout << "decompressionMultiplyPtr type:" << static_cast<int>(decompressionMultiplyPtr->getDataType()) << std::endl;
     const auto* zp = reinterpret_cast<const float_t*>(decompressionSubtractPtr->getData());
     const auto* scale = reinterpret_cast<const float_t*>(decompressionMultiplyPtr->getData());
 
+    auto outputDType = getChildEdgeAt(0)->getMemoryPtr()->getDataType();
+    if (outputDType == dnnl::memory::data_type::bf16) {
+        auto* pdst = reinterpret_cast<bfloat16*>(getChildEdgeAt(0)->getMemoryPtr()->getData());
+        execInputEmbeddingCase_bf16(srcMemPtr, idxMemPtr, psrc, pidx, pdst, zp, scale);
+    } else if (outputDType == dnnl::memory::data_type::f32) {
+        auto* pdst = reinterpret_cast<float_t*>(getChildEdgeAt(0)->getMemoryPtr()->getData());
+        execInputEmbeddingCase_f32(srcMemPtr, idxMemPtr, psrc, pidx, pdst, zp, scale);
+    }
+}
+
+void Gather::execInputEmbeddingCase_f32(MemoryPtr& srcMemPtr,
+                                        MemoryPtr& idxMemPtr,
+                                        const uint8_t* psrc,
+                                        const int32_t* pidx,
+                                        float* pdst,
+                                        const float_t* zp,
+                                        const float_t* scale) {
     const auto& idxDims = idxMemPtr->getStaticDims();
     const auto idxCnt = (idxDims.size() == 0) ? 1 : idxDims[0];
     auto axisDim = srcMemPtr->getStaticDims()[0];
@@ -628,7 +649,32 @@ void Gather::execInputEmbeddingCase() {
                 ii = axisDim;
         }
         for (size_t f = 0; f < feaDim; f++) {
-            pdst[i * ii + f] = (static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
+            pdst[i * feaDim + f] = static_cast<bfloat16>((static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii]);
+        }
+    }
+}
+
+void Gather::execInputEmbeddingCase_bf16(MemoryPtr& srcMemPtr,
+                                         MemoryPtr& idxMemPtr,
+                                         const uint8_t* psrc,
+                                         const int32_t* pidx,
+                                         bfloat16* pdst,
+                                         const float_t* zp,
+                                         const float_t* scale) {
+    const auto& idxDims = idxMemPtr->getStaticDims();
+    const auto idxCnt = (idxDims.size() == 0) ? 1 : idxDims[0];
+    auto axisDim = srcMemPtr->getStaticDims()[0];
+    auto feaDim = srcMemPtr->getStaticDims()[1];
+    for (size_t i = 0; i < idxCnt; i++) {
+        auto ii = pidx[i];
+        if (ii < 0) {
+            if (reverseIndexing)
+                ii += axisDim;
+            else
+                ii = axisDim;
+        }
+        for (size_t f = 0; f < feaDim; f++) {
+            pdst[i * feaDim + f] = (static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
         }
     }
 }

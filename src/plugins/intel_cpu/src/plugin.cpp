@@ -18,7 +18,6 @@
 #include "transformations/utils/utils.hpp"
 #include "utils/denormals.hpp"
 #include "weights_cache.hpp"
-#include "utils/my_profiler.hpp"
 
 #if defined(__linux__)
 # include <sys/auxv.h>
@@ -516,7 +515,6 @@ static Config::SnippetsMode getSnippetsMode(const ov::AnyMap& modelConfig, const
 std::shared_ptr<ov::ICompiledModel>
 Engine::compile_model(const std::shared_ptr<const ov::Model>& model, const ov::AnyMap& orig_config) const{
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Engine::compile_model");
-    auto p = MY_PROFILE("Engine::compile_model");
     CREATE_DEBUG_TIMER(debugLoadTimer);
 
     // verification of supported input

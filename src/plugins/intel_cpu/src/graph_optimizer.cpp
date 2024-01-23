@@ -47,7 +47,6 @@
 
 #include "itt.h"
 #include "memory_desc/cpu_memory_desc_utils.h"
-#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace ov::intel_cpu::node;
@@ -58,7 +57,6 @@ namespace intel_cpu {
 GraphOptimizer::GraphOptimizer() {}
 
 void GraphOptimizer::ApplyCommonGraphOptimizations(Graph &graph) {
-    auto p = MY_PROFILE("ApplyCommonGraphOptimizations");
     // For conv with input zp, canBeExecutedInInt8() check has dependency on input zero point check.
     // Also zero point node is the input of computing-intensive nodes. Most others fusing are the output of computing-intensive nodes.
     // So Locate the FuseConvolutionAndZeroPoints() as the first optimization.
@@ -195,7 +193,6 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph &graph) {
 }
 
 void GraphOptimizer::ApplyImplSpecificGraphOptimizations(Graph &graph) {
-    auto p = MY_PROFILE("ApplyImplSpecificGraphOptimizations");
     OV_ITT_SCOPE(FIRST_INFERENCE, itt::domains::intel_cpu_LT, "GraphOptimizer::ApplyImplSpecificGraphOptimizations");
 
     DropDoubleReorders(graph);
