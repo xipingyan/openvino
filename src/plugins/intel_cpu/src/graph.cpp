@@ -1296,8 +1296,7 @@ void Graph::Infer(SyncInferRequest* request) {
         OPENVINO_THROW("Unknown ov::intel_cpu::Graph state: " , static_cast<size_t>(status));
     }
 
-    // if (infer_count != -1) infer_count++;
-    infer_count++;
+    if (infer_count != -1) infer_count++;
 }
 
 void Graph::SortTopologically() {

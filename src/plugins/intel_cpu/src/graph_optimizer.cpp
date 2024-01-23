@@ -598,28 +598,6 @@ void GraphOptimizer::FuseGatherAndWeightsDecompression(Graph &graph) {
         if (withSubtract && !check_decompression_shape(subtractConstNode->getOutputShapeAtPort(0).getDims()))
             continue;
 
-        // // HW specific shape limitations
-        // if (impl::cpu::x64::mayiuse(impl::cpu::x64::avx512_core_amx) &&
-        //     gatherNode->getOriginalInputPrecisionAtPort(0) == ov::element::bf16) {
-        //     // OneDNN AMX IP implementation has limited shapes support due to performance considerations. As a current solution conditions below are copied
-        //     // from OneDNN to make sure correct IP impl will be used since fallback one doesn't support weights decompression feature.
-        //     size_t OC = gatherInputWeightsShape.getDims()[0];
-        //     size_t IC = gatherInputWeightsShape.getDims()[1];
-        //     size_t simdWidth = 16;
-        //     size_t vnniFactor = 2;
-        //     size_t maxSize = 512;
-        //     auto amxRow = vnniFactor * simdWidth;
-
-        //     if ((IC <= amxRow && OC <= amxRow) || (IC <= maxSize && OC <= maxSize && IC % amxRow != 0))
-        //         continue;
-        // }
-
-        // size_t IC = gatherInputWeightsShape.getDims()[1];
-        // // OneDNN IP primitive provides limited decompression params support
-        // if (IC % groupNum != 0 || IC / groupNum < 4) {
-        //     continue;
-        // }
-
         // Fusion processing
         auto *multiplyInputNode = dynamic_cast<node::Input *>(multiplyConstNode.get());
         if (!multiplyInputNode) {

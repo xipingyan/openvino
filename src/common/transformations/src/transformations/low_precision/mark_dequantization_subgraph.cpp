@@ -37,9 +37,6 @@ ov::pass::MarkDequantizationSubgraph::MarkDequantizationSubgraph(const element::
         auto convert = pattern_map.at(convert_pattern).get_node_shared_ptr();
         auto input = pattern_map.at(input_pattern);
         const auto multiply = m.get_match_root();
-        if (multiply->get_friendly_name() == "Constant_173_compressed/fq_weights_0") {
-            printf("--------------------->Found node: multiply\n");
-        }
 
         if (transformation_callback(multiply)) {
             return false;
