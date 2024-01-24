@@ -637,11 +637,17 @@ void Gather::execInputEmbeddingCase_f32(MemoryPtr& srcMemPtr,
                                         const float_t* zp,
                                         const float_t* scale) {
     const auto& idxDims = idxMemPtr->getStaticDims();
-    const auto idxCnt = (idxDims.size() == 0) ? 1 : idxDims[0];
+    const auto batch = (idxDims.size() == 0) ? 1 : idxDims[0];
+    const auto seqLen = (idxDims.size() == 0) ? 1 : idxDims[1];
+
     auto axisDim = srcMemPtr->getStaticDims()[0];
     auto feaDim = srcMemPtr->getStaticDims()[1];
-    for (size_t i = 0; i < idxCnt; i++) {
-        auto ii = pidx[i];
+
+#if 1  // parallel_for2d in batch and seq
+    Dim algin_size = (feaDim >> 3) << 3;
+    parallel_for2d(batch, seqLen, [&](const size_t b, const size_t s) {
+        auto dstIdx = b * seqLen + s;
+        auto ii = pidx[dstIdx];
         if (ii < 0) {
             if (reverseIndexing)
                 ii += axisDim;
@@ -649,9 +655,56 @@ void Gather::execInputEmbeddingCase_f32(MemoryPtr& srcMemPtr,
                 ii = axisDim;
         }
         for (size_t f = 0; f < feaDim; f++) {
-            pdst[i * feaDim + f] = static_cast<bfloat16>((static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii]);
+            pdst[dstIdx * feaDim + f] =(static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
+        }
+    });
+
+    if (algin_size != feaDim) {
+        for (size_t b = 0; b < batch; b++) {
+            for (size_t s = 0; s < seqLen; s++) {
+                auto dstIdx = b * seqLen + s;
+                auto ii = pidx[dstIdx];
+                if (ii < 0) {
+                    if (reverseIndexing)
+                        ii += axisDim;
+                    else
+                        ii = axisDim;
+                }
+                for (size_t f = feaDim - algin_size; f < feaDim; f++) {
+                    pdst[dstIdx * feaDim + f] =(static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
+                }
+            }
         }
     }
+    return;
+#endif
+    // Reference implementation
+    for (size_t b = 0; b < batch; b++) {
+        for (size_t s = 0; s < seqLen; s++) {
+            auto dstIdx = b * seqLen + s;
+            auto ii = pidx[dstIdx];
+            if (ii < 0) {
+                if (reverseIndexing)
+                    ii += axisDim;
+                else
+                    ii = axisDim;
+            }
+            for (size_t f = 0; f < feaDim; f++) {
+                pdst[dstIdx * feaDim + f] = (static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
+            }
+        }
+    }
+// #if __AVX2__
+//             auto vs = _mm256_set1_ps(s);
+//             for (; k + 8 <= embedding_dim; k += 8) {
+//                 auto ps = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_loadu_si64(pw + k)));
+//                 ps = _mm256_mul_ps(ps, vs);
+//                 _mm256_storeu_ps(dst + k, ps);
+//             }
+// #endif
+//             for (; k < embedding_dim; k++) {
+//                 dst[k] = s * pw[k];
+//             }
 }
 
 void Gather::execInputEmbeddingCase_bf16(MemoryPtr& srcMemPtr,
@@ -662,11 +715,17 @@ void Gather::execInputEmbeddingCase_bf16(MemoryPtr& srcMemPtr,
                                          const float_t* zp,
                                          const float_t* scale) {
     const auto& idxDims = idxMemPtr->getStaticDims();
-    const auto idxCnt = (idxDims.size() == 0) ? 1 : idxDims[0];
+    const auto batch = (idxDims.size() == 0) ? 1 : idxDims[0];
+    const auto seqLen = (idxDims.size() == 0) ? 1 : idxDims[1];
+
     auto axisDim = srcMemPtr->getStaticDims()[0];
     auto feaDim = srcMemPtr->getStaticDims()[1];
-    for (size_t i = 0; i < idxCnt; i++) {
-        auto ii = pidx[i];
+
+#if 1  // parallel_for2d in batch and seq
+    Dim algin_size = (feaDim >> 3) << 3;
+    parallel_for2d(batch, seqLen, [&](const size_t b, const size_t s) {
+        auto dstIdx = b * seqLen + s;
+        auto ii = pidx[dstIdx];
         if (ii < 0) {
             if (reverseIndexing)
                 ii += axisDim;
@@ -674,7 +733,46 @@ void Gather::execInputEmbeddingCase_bf16(MemoryPtr& srcMemPtr,
                 ii = axisDim;
         }
         for (size_t f = 0; f < feaDim; f++) {
-            pdst[i * feaDim + f] = (static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii];
+            pdst[dstIdx * feaDim + f] =
+                static_cast<bfloat16>((static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii]);
+        }
+    });
+
+    if (algin_size != feaDim) {
+        for (size_t b = 0; b < batch; b++) {
+            for (size_t s = 0; s < seqLen; s++) {
+                auto dstIdx = b * seqLen + s;
+                auto ii = pidx[dstIdx];
+                if (ii < 0) {
+                    if (reverseIndexing)
+                        ii += axisDim;
+                    else
+                        ii = axisDim;
+                }
+                for (size_t f = feaDim - algin_size; f < feaDim; f++) {
+                    pdst[dstIdx * feaDim + f] =
+                        static_cast<bfloat16>((static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii]);
+                }
+            }
+        }
+    }
+    return;
+#endif
+    // Reference implementation
+    for (size_t b = 0; b < batch; b++) {
+        for (size_t s = 0; s < seqLen; s++) {
+            auto dstIdx = b * seqLen + s;
+            auto ii = pidx[dstIdx];
+            if (ii < 0) {
+                if (reverseIndexing)
+                    ii += axisDim;
+                else
+                    ii = axisDim;
+            }
+            for (size_t f = 0; f < feaDim; f++) {
+                pdst[dstIdx * feaDim + f] =
+                    static_cast<bfloat16>((static_cast<float>(psrc[ii * feaDim + f]) - zp[ii]) * scale[ii]);
+            }
         }
     }
 }
