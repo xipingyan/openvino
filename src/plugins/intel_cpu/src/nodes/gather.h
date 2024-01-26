@@ -65,20 +65,6 @@ private:
 
     bool canOptimizeInputEmbeddingCase = false;
     void execInputEmbeddingCase();
-    void execInputEmbeddingCase_f32(MemoryPtr& srcMemPtr,
-                                    MemoryPtr& idxMemPtr,
-                                    const uint8_t* psrc,
-                                    const int32_t* pidx,
-                                    float* pdst,
-                                    const float_t* zp,
-                                    const float_t* scale);
-    void execInputEmbeddingCase_bf16(MemoryPtr& srcMemPtr,
-                                     MemoryPtr& idxMemPtr,
-                                     const uint8_t* psrc,
-                                     const int32_t* pidx,
-                                     bfloat16* pdst,
-                                     const float_t* zp,
-                                     const float_t* scale);
 
     bool isDataShapeStat = false;
     bool isIdxShapeStat = false;

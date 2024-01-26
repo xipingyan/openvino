@@ -148,6 +148,20 @@ cross_compiled_file(${TARGET_NAME}
         NAMESPACE   ov::Extensions::Cpu::XARCH
 )
 cross_compiled_file(${TARGET_NAME}
+        ARCH AVX2 ANY
+                    src/nodes/kernels/x64/gather_embedding_f32.cpp
+        API         src/nodes/kernels/x64/gather_embedding_f32.hpp
+        NAME        execInputEmbeddingCasef32
+        NAMESPACE   ov::Extensions::Cpu::XARCH
+)
+cross_compiled_file(${TARGET_NAME}
+        ARCH AVX2 ANY
+                    src/nodes/kernels/x64/gather_embedding_bf16.cpp
+        API         src/nodes/kernels/x64/gather_embedding_bf16.hpp
+        NAME        execInputEmbeddingCasebf16
+        NAMESPACE   ov::Extensions::Cpu::XARCH
+)
+cross_compiled_file(${TARGET_NAME}
         ARCH AVX512F AVX2 ANY
                     src/nodes/kernels/scaled_attn/softmax.cpp
         API         src/nodes/kernels/scaled_attn/softmax.hpp
