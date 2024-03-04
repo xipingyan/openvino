@@ -45,7 +45,8 @@ struct InputAndWeigthsShapeParams {
 };
 
 using GatherWeightsDecompressParams = std::tuple<InputAndWeigthsShapeParams,
-                                                 ov::AnyMap,  // additional config
+                                                 ov::element::Type,  // weights type
+                                                 ov::AnyMap,         // additional config
                                                  fusingSpecificParams,
                                                  bool>;  // should use decompression implementation
 
@@ -55,19 +56,21 @@ class GatherWeightsDecompression : public testing::WithParamInterface<GatherWeig
 public:
     static std::string getTestCaseName(testing::TestParamInfo<GatherWeightsDecompressParams> obj) {
         InputAndWeigthsShapeParams shape_params;
+        ov::element::Type weights_precision;
         ov::AnyMap additional_config;
         fusingSpecificParams fusing_params;
         bool should_fuse;
 
-        std::tie(shape_params, additional_config, fusing_params, should_fuse) = obj.param;
+        std::tie(shape_params, weights_precision, additional_config, fusing_params, should_fuse) = obj.param;
 
         std::ostringstream result;
         result << "data_shape=" << shape_params.data_shape << "_";
         result << "weights_shape=" << shape_params.weights_shape << "_";
+        result << "weights_precision=" << weights_precision << "_";
 
         result << "config=(";
         for (const auto& configEntry : additional_config) {
-            result << configEntry.first << ", " << configEntry.second.as<std::string>() << ":";
+            result << configEntry.first << "=" << configEntry.second.as<std::string>() << ":";
         }
         result << ")";
         result << CpuTestWithFusing::getTestCaseName(fusing_params);
@@ -84,7 +87,7 @@ protected:
         weights->set_friendly_name("Compressed_weights");
         auto weights_convert = std::make_shared<ov::op::v0::Convert>(weights, ov::element::f16);
 
-        std::shared_ptr<ov::Node> zp_const = ov::test::utils::make_constant(ov::element::u8,
+        std::shared_ptr<ov::Node> zp_const = ov::test::utils::make_constant(weights_precision,
                                                                             ov::Shape{weights_shape[0], 1},
                                                                             ov::test::utils::InputGenerateData{});
         auto zp_convert = std::make_shared<ov::op::v0::Convert>(zp_const, ov::element::f16);
@@ -101,13 +104,14 @@ protected:
 
     std::shared_ptr<ov::Model> initSubgraph(const ov::PartialShape& data_shape,
                                             const ov::Shape& weights_shape,
+                                            const ov::element::Type& weights_precision,
                                             const ov::element::Type data_precision) {
         ov::ParameterVector params{std::make_shared<ov::op::v0::Parameter>(ov::element::i64, data_shape)};
         auto params_convert = std::make_shared<ov::op::v0::Convert>(params[0], ov::element::i32);
         auto axis = ov::op::v0::Constant::create(element::i32, Shape{1}, {0});
 
         const auto weights_subgraph = initDecompressionWeights(weights_shape,
-                                                               ov::element::u8);
+                                                               weights_precision);
 
         auto gather = std::make_shared<ov::op::v8::Gather>(weights_subgraph, params_convert, axis);
         gather->set_friendly_name("GatherCompression");
@@ -121,11 +125,12 @@ protected:
         targetDevice = ov::test::utils::DEVICE_CPU;
 
         InputAndWeigthsShapeParams shape_params;
+        ov::element::Type weights_precision;
         ov::AnyMap additional_config;
         fusingSpecificParams fusing_params;
         bool should_fuse;
 
-        std::tie(shape_params, additional_config, fusing_params, should_fuse) = GetParam();
+        std::tie(shape_params, weights_precision, additional_config, fusing_params, should_fuse) = GetParam();
 
         configuration.insert(additional_config.begin(), additional_config.end());
         std::tie(postOpMgrPtr, fusedOps) = fusing_params;
@@ -134,33 +139,26 @@ protected:
         ElementType netType = ov::element::f32;
         inType = outType = netType;
 
-        function = initSubgraph(inputDynamicShapes[0], shape_params.weights_shape, netType);
+        function = initSubgraph(inputDynamicShapes[0], shape_params.weights_shape, weights_precision, netType);
     }
 
     void check_results() {
         bool weights_found = false;
         for (const auto& n : compiledModel.get_runtime_model()->get_ordered_ops()) {
             if (n->get_friendly_name() == "Compressed_weights") {
-                ASSERT_EQ(n->get_output_element_type(0), ov::element::u8);
+                ASSERT_TRUE(n->get_output_element_type(0) == ov::element::u8 ||
+                            n->get_output_element_type(0) == ov::element::u4);
                 weights_found = true;
             }
         }
         ASSERT_TRUE(weights_found);
 
-        bool gather_found = false;
-        for (const auto& n : compiledModel.get_runtime_model()->get_ordered_ops()) {
-            if (n->get_friendly_name() == "GatherCompression") {
-                ASSERT_EQ(n->get_input_element_type(0), ov::element::u8);
-                ASSERT_EQ(n->get_output_element_type(0), ov::element::f32);
-                gather_found = true;
-            }
-        }
-        ASSERT_TRUE(gather_found);
-
         CheckNumberOfNodesWithType(compiledModel, "Convert", 1);
         CheckNumberOfNodesWithType(compiledModel, "Subtract", 0);
         CheckNumberOfNodesWithType(compiledModel, "Multiply", 0);
         CheckNumberOfNodesWithType(compiledModel, "Subgraph", 0);
+        CheckNumberOfNodesWithType(compiledModel, "Gather", 0);
+        CheckNumberOfNodesWithType(compiledModel, "GatherCompression", 1);
     }
 };
 
@@ -188,11 +186,14 @@ const std::vector<InputAndWeigthsShapeParams> input_weights_shapes = {
     {{{}, {{2, 1}}}, {16, 33}}
 };
 
+const std::vector<ov::element::Type> input_weights_precision = {{ov::element::u8, ov::element::u4}};
+
 const std::vector<fusingSpecificParams> fs_params{emptyFusingSpec, fusingBias};
 
 INSTANTIATE_TEST_SUITE_P(smoke_GatherCompressedWeights_basic,
                          GatherWeightsDecompression,
                          ::testing::Combine(::testing::ValuesIn(input_weights_shapes),
+                                            ::testing::ValuesIn(input_weights_precision),
                                             ::testing::ValuesIn(filter_additional_config()),
                                             ::testing::ValuesIn(fs_params),
                                             ::testing::Values(true)),
