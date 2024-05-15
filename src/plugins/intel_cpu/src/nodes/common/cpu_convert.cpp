@@ -614,12 +614,25 @@ struct ConvertFrom4BitPrecision {
         default:
             break;
         }
-
+        printf("================================= cpu_convert input %%x\n");
         auto src = static_cast<const uint8_t*>(ctx.srcPtr);
         auto dst = static_cast<DT*>(ctx.dstPtr);
+        for (size_t i = 0; i < ctx.size/2; i++) {
+            printf("%x,", src[i]);
+        }
+        std::cout << std::endl;
+        printf("================================= cpu_convert input %%d\n");
+        for (size_t i = 0; i < ctx.size / 2; i++) {
+            printf("%d,", src[i]);
+        }
+        std::cout << std::endl;
+        printf("================================= cpu_convert output std::cout\n");
         for (size_t i = 0; i < ctx.size; i++) {
             dst[i] = static_cast<DT>(get4Bit(src[i / 2], i % 2));
+            std::cout << dst[i] << ",";
         }
+        std::cout << std::endl;
+        printf("================================= cpu_convert done\n");
         ctx.converted = true;
     }
 };
