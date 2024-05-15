@@ -242,6 +242,8 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
         auto input_precision = ii.get_element_type();
         static const std::set<ov::element::Type_t> supported_precisions = {ov::element::Type_t::u8,
                                                                            ov::element::Type_t::i8,
+                                                                           ov::element::Type_t::i4,
+                                                                           ov::element::Type_t::u4,
                                                                            ov::element::Type_t::u16,
                                                                            ov::element::Type_t::i16,
                                                                            ov::element::Type_t::u32,
