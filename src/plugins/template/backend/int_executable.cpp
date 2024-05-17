@@ -82,6 +82,63 @@ bool ov::runtime::interpreter::INTExecutable::call(std::vector<ov::Tensor>& outp
     collect_variables(m_nodes, variable_context);
     return call(outputs, inputs, eval_context, collect_performance);
 }
+#include <openvino/reference/convert.hpp>
+inline void dump_output_node(std::shared_ptr<ov::Node> op, ov::TensorVector& op_outputs) {
+    if (std::dynamic_pointer_cast<ov::op::v0::Parameter>(op)) {
+        return;
+    }
+
+    auto friendly_name = op->get_friendly_name();
+    for (size_t i = 0; i < op_outputs.size(); i++) {
+        auto op_tensor = op_outputs[i];
+        auto out_size = ov::shape_size<ov::Shape>(op->get_output_shape(i));
+        float* dst_buf = new float[out_size];
+        switch (op->get_element_type()) {
+        case ov::element::f32:
+            ov::reference::convert<float, float>(op_tensor.data<float>(), dst_buf, out_size);
+            break;
+        case ov::element::i32:
+            ov::reference::convert<int32_t, float>(op_tensor.data<int32_t>(), dst_buf, out_size);
+            break;
+        case ov::element::i16:
+            ov::reference::convert<int16_t, float>(op_tensor.data<int16_t>(), dst_buf, out_size);
+            break;
+        case ov::element::i8:
+            ov::reference::convert<int8_t, float>(op_tensor.data<int8_t>(), dst_buf, out_size);
+            break;
+        case ov::element::u32:
+            ov::reference::convert<uint32_t, float>(op_tensor.data<uint32_t>(), dst_buf, out_size);
+            break;
+        case ov::element::u16:
+            ov::reference::convert<uint16_t, float>(op_tensor.data<uint16_t>(), dst_buf, out_size);
+            break;
+        case ov::element::u8:
+            ov::reference::convert<uint8_t, float>(op_tensor.data<uint8_t>(), dst_buf, out_size);
+            break;
+        case ov::element::f16:
+            ov::reference::convert<ov::float16, float>(op_tensor.data<ov::float16>(), dst_buf, out_size);
+            break;
+        case ov::element::bf16:
+            ov::reference::convert<ov::bfloat16, float>(op_tensor.data<ov::bfloat16>(), dst_buf, out_size);
+            break;
+        default:
+            std::cout << "Error: can't dump " << friendly_name << " with element type: " << op_tensor.get_element_type()
+                      << ", but dump will be continued." << std::endl;
+            delete[] dst_buf;
+            return;
+        }
+        std::string out_dir = "dump_template";
+        std::system(("mkdir -p " + out_dir).c_str());
+        std::string out_fn = out_dir + "/" + friendly_name + "_" + op_tensor.get_element_type().c_type_string() + "_" +
+                             op_tensor.get_shape().to_string() + ".txt";
+        FILE* pf = fopen(out_fn.c_str(), "wb");
+        for (size_t i = 0; i < out_size; i++) {
+            fprintf(pf, "%f,", dst_buf[i]);
+        }
+        fclose(pf);
+        delete[] dst_buf;
+    }
+}
 
 bool ov::runtime::interpreter::INTExecutable::call(std::vector<ov::Tensor>& outputs,
                                                    const std::vector<ov::Tensor>& inputs,
@@ -148,6 +205,8 @@ bool ov::runtime::interpreter::INTExecutable::call(std::vector<ov::Tensor>& outp
                 // TODO: extend evaluate map for the context
                 evaluate_node(op, op_outputs, op_inputs);
             }
+            // Dump output
+            dump_output_node(op, op_outputs);
         }
         // Update tensors in tensor map
         for (size_t i = 0; i < op->get_output_size(); ++i) {
