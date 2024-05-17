@@ -1344,6 +1344,27 @@ void Graph::InferDynamic(SyncInferRequest* request) {
     }
 }
 
+void dump_output_node_cpu(NodePtr node) {
+    auto friendly_name = node->getOriginalLayers();
+    for (size_t i = 0; i < node->getOriginalOutputsNumber(); i++) {
+        auto op_data = node->getDstDataAtPort(i);
+        auto out_size = node->getOutputShapeAtPort(i).getElementsCount();
+        float* dst_buf = new float[out_size];
+        auto prec = node->getDstMemoryAtPort(i)->getPrecision();
+        ov::intel_cpu::cpu_convert(op_data, dst_buf, prec, ov::element::f32, out_size);
+        std::string out_dir = "dump_cpu";
+        std::system(("mkdir -p " + out_dir).c_str());
+        std::string out_fn = out_dir + "/" + friendly_name + "_" + prec.to_string() + "_" +
+                             node->getOutputShapeAtPort(i).toString() + ".txt";
+        FILE* pf = fopen(out_fn.c_str(), "wb");
+        for (size_t i = 0; i < out_size; i++) {
+            fprintf(pf, "%f,", dst_buf[i]);
+        }
+        fclose(pf);
+        delete[] dst_buf;
+    }
+}
+
 inline void Graph::ExecuteNode(const NodePtr& node, const dnnl::stream& stream) const {
     if (!node->parallelWith.empty()) {
         // run nodes in parallel
@@ -1388,6 +1409,9 @@ inline void Graph::ExecuteNode(const NodePtr& node, const dnnl::stream& stream) 
             node->executeStatic(stream, subStreamID);
         }
     }
+
+    // Dump node output data.
+    dump_output_node_cpu(node);
 }
 
 void Graph::ParalleMtNuma(size_t num_nodes,
