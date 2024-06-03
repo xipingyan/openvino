@@ -19,6 +19,7 @@
 #include "dnnl_extension_utils.h"
 #include "cpu/x64/jit_generator.hpp"
 #include <common/dnnl_thread.hpp>
+#include "utils/my_profiler.hpp"
 
 using namespace dnnl;
 using namespace dnnl::impl;
@@ -1269,6 +1270,8 @@ void DeformableConvolution::DefConvJitExecutor::exec(const float* src, const flo
     float* input_buffer_ptr = input_buffer.data();
 
     parallel_for3d(jcp.mb, jcp.ngroups, jcp.oh, [&](size_t n, size_t g, size_t oh) {
+        auto prof = MY_PROFILE_ARGS("DeformableConvolution::Kernel",
+                                    {{"n", std::to_string(n)}, {"g", std::to_string(g)}, {"oh", std::to_string(oh)}});
         auto ithr = parallel_get_thread_num();
 
         auto par_conv = jit_def_conv_call_args();
