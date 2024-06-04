@@ -233,6 +233,63 @@ void Node::selectOptimalPrimitiveDescriptor() {
 }
 
 void Node::selectPreferPrimitiveDescriptor(const std::vector<impl_desc_type>& priority, bool ignoreConstInputs) {
+    static bool use_def_spp = std::getenv("USE_DEF_SPP");
+    // Print orginal primitive of a node with multip inputs.
+    int input_num = 0;
+    {
+        for (size_t i = 0; i < getParentEdges().size(); i++) {
+            auto parentEdge = getParentEdgeAt(i);
+            auto parentPtr = parentEdge->getParent();
+            if (parentPtr->isConstant()) {
+                continue;
+            }
+            input_num++;
+        }
+        if (input_num > 1) {
+            auto callback_fun = [&](bool check_print) {
+                if (!check_print) {
+                    std::cout << "****** Start to dump layer: " << getName() << std::endl;
+                }
+                std::string old_prec_layout = "";
+                for (size_t i = 0; i < getParentEdges().size(); i++) {
+                    auto parentEdge = getParentEdgeAt(i);
+                    auto parentPtr = parentEdge->getParent();
+                    auto parent_spd = parentPtr->getSelectedPrimitiveDescriptor();
+                    if (parentPtr->isConstant()) {
+                        if (!check_print)
+                            std::cout << getName() << " : " << "const node." << std::endl;
+                        continue;
+                    }
+
+                    int inNum = parentEdge->getInputNum();
+                    inNum = inNum < 0 ? 0 : inNum;
+                    auto parentDesc = parent_spd->getConfig().outConfs[inNum].getMemDesc();
+                    std::stringstream buffer;
+                    buffer << *parentDesc;
+                    std::string str_p = buffer.str();
+                    if (check_print) {
+                        auto p1 = str_p.find("}");
+                        auto cur_prec_layout = str_p.substr(p1 + 2, str_p.length() - p1 - 2);
+                        // std::cout << "cur_prec_layout=" << cur_prec_layout.c_str() << std::endl;
+                        if (old_prec_layout != cur_prec_layout) {
+                            if (old_prec_layout != "") {
+                                return true;
+                            }
+                            old_prec_layout = cur_prec_layout;
+                        }
+                    } else {
+                        std::cout << getName() << " : " << str_p.c_str() << std::endl;
+                    }
+                }
+                return false;
+            };
+            if (callback_fun(true)) {
+                callback_fun(false);
+            } else {
+                input_num = 0;
+            }
+        }
+    }
     for (auto& type : priority) {
         int selectedPrimitive = -1;
         int equalsFormatCount = -1;
@@ -266,7 +323,10 @@ void Node::selectPreferPrimitiveDescriptor(const std::vector<impl_desc_type>& pr
 
                 // We don't take into account constant edges since reorders on them will be executed on load network stage
                 if (ignoreConstInputs && j > 0 && parentPtr->isConstant()) {
-                    equalsLocalFormatCount += 100;
+                    if (use_def_spp)
+                        equalsLocalFormatCount++;
+                    else
+                        equalsLocalFormatCount += 100;
                     continue;
                 }
 
@@ -281,44 +341,49 @@ void Node::selectPreferPrimitiveDescriptor(const std::vector<impl_desc_type>& pr
                     auto parentDesc = parent_spd->getConfig().outConfs[inNum].getMemDesc();
 
                     const bool isCompatible = curDesc->isCompatible(*parentDesc);
-
-                    /*
-                    Heuristics:
-                    SShape=Shape(all elements = 1 or only 1 position is not 1)
-                    Reorder is inserted after the SShape node, and such reorder have less cost of calculation.
-                    If multiple inputs of a node have different layouts, try to have the reorder occur on the SShape
-                    node.
-
-                    Select Alogrithm:
-                    Condition 1: Precision and shape keep same.
-                    Condition 2: Static shape.
-                    1: Compatible + not SShape:  score=100
-                    2: Compatible + SShape:      score=2
-                    3: Not Compatible + SShape:  score=1
-                    4: Others:                   score=0
-                    */
-                    if ((curDesc->getPrecision() == parentDesc->getPrecision()) && curDesc->getShape().isStatic() &&
-                        parentDesc->getShape().isStatic() && curDesc->getShape() == parentDesc->getShape()) {
-                        bool isSShape = false;
-                        auto curDims = curDesc->getShape().getDims();
-                        size_t noneOneNum = 0;
-                        for (size_t d = 0; d < curDims.size(); d++) {
-                            if (curDims[d] != 1u) {
-                                noneOneNum++;
-                            }
-                        }
-                        isSShape = (noneOneNum == 1u) || (noneOneNum == 0);
-
-                        if (isCompatible && (!isSShape)) {
-                            equalsLocalFormatCount += 100;
-                        } else if (isCompatible && isSShape) {
-                            equalsLocalFormatCount += 2;
-                        } else if (!isCompatible && isSShape) {
-                            equalsLocalFormatCount += 1;
+                    if (use_def_spp) {
+                        if (isCompatible) {
+                            equalsLocalFormatCount++;
                         }
                     } else {
-                        if (isCompatible) {
-                            equalsLocalFormatCount += 100;
+                        /*
+                        Heuristics:
+                        SShape=Shape(all elements = 1 or only 1 position is not 1)
+                        Reorder is inserted after the SShape node, and such reorder have less cost
+                           of calculation. If multiple inputs of a node have different layouts, try to have the reorder
+                           occur on the SShape node.
+
+                        Select Alogrithm:
+                        Condition 1: Precision and shape keep same.
+                        Condition 2: Static shape.
+                        1: Compatible + not SShape:  score=100
+                        2: Compatible + SShape:      score=2
+                        3: Not Compatible + SShape:  score=1
+                        4: Others:                   score=0
+                        */
+                        if ((curDesc->getPrecision() == parentDesc->getPrecision()) && curDesc->getShape().isStatic() &&
+                            parentDesc->getShape().isStatic() && curDesc->getShape() == parentDesc->getShape()) {
+                            bool isSShape = false;
+                            auto curDims = curDesc->getShape().getDims();
+                            size_t noneOneNum = 0;
+                            for (size_t d = 0; d < curDims.size(); d++) {
+                                if (curDims[d] != 1u) {
+                                    noneOneNum++;
+                                }
+                            }
+                            isSShape = (noneOneNum == 1u) || (noneOneNum == 0);
+
+                            if (isCompatible && (!isSShape)) {
+                                equalsLocalFormatCount += 100;
+                            } else if (isCompatible && isSShape) {
+                                equalsLocalFormatCount += 2;
+                            } else if (!isCompatible && isSShape) {
+                                equalsLocalFormatCount += 1;
+                            }
+                        } else {
+                            if (isCompatible) {
+                                equalsLocalFormatCount += 100;
+                            }
                         }
                     }
 
@@ -333,6 +398,24 @@ void Node::selectPreferPrimitiveDescriptor(const std::vector<impl_desc_type>& pr
                     selectedPrimitive = static_cast<int>(i);
                     DEBUG_LOG(getName(), " Select primitive desc: ", i, " ", supportedPrimitiveDesc);
                 }
+            }
+        }
+
+        // Select optimal primitive
+        {
+            if (input_num > 1 && selectedPrimitive >= 0) {
+                for (auto& type_tmp : priority) {
+                    for (size_t i = 0; i < getSupportedPrimitiveDescriptors().size(); i++) {
+                        const auto& supportedPrimitiveDesc = getSupportedPrimitiveDescriptors()[i];
+                        const impl_desc_type supportedType = supportedPrimitiveDesc.getImplementationType();
+                        if (supportedType != type_tmp) {
+                            continue;
+                        }
+                        std::cout << "===[" << i << "]:" << getSupportedPrimitiveDescriptors()[i] << std::endl;
+                    }
+                }
+
+                std::cout << "Final selected: " << selectedPrimitive << std::endl << std::endl;
             }
         }
 
