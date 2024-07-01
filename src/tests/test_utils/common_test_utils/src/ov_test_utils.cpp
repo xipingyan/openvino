@@ -57,26 +57,32 @@ void TransformationTestsF::SetUp() {
     manager.register_pass<ov::pass::InitNodeInfo>();
     manager.register_pass<ov::pass::CopyTensorNamesToRefModel>(model_ref);
 }
-
+#define MY_PRINT std::cout << __FILE__ << ":" << __LINE__ << ", "
 void TransformationTestsF::TearDown() {
     OPENVINO_ASSERT(model != nullptr, "Test Model is not initialized.");
 
     std::shared_ptr<ov::Model> cloned_function;
     auto acc_enabled = comparator.should_compare(FunctionsComparator::ACCURACY);
     if (!model_ref) {
+        MY_PRINT << std::endl;
         cloned_function = model->clone();
         model_ref = cloned_function;
     } else if (acc_enabled) {
+        MY_PRINT << std::endl;
         cloned_function = model->clone();
     }
+    MY_PRINT << std::endl;
     manager.register_pass<ov::pass::CheckUniqueNames>(m_unh, m_soft_names_comparison, m_result_friendly_names_check);
+    MY_PRINT << std::endl;
     manager.run_passes(model);
 
     if (!m_disable_rt_info_check) {
+        MY_PRINT << std::endl;
         ASSERT_NO_THROW(check_rt_info(model));
     }
 
     if (acc_enabled) {
+        MY_PRINT << std::endl;
         OPENVINO_ASSERT(cloned_function != nullptr, "Accuracy cannot be checked. Cloned Model is not initialized.");
         auto acc_comparator = FunctionsComparator::no_default();
         acc_comparator.set_accuracy_thresholds(m_abs_threshold, m_rel_threshold);
@@ -84,9 +90,13 @@ void TransformationTestsF::TearDown() {
         auto res = acc_comparator.compare(model, cloned_function);
         ASSERT_TRUE(res.valid) << res.message;
         comparator.disable(FunctionsComparator::CmpValues::ACCURACY);
+        MY_PRINT << std::endl;
     }
+    MY_PRINT << std::endl;
     auto res = comparator.compare(model, model_ref);
+    MY_PRINT << std::endl;
     ASSERT_TRUE(res.valid) << res.message;
+    MY_PRINT << std::endl;
 }
 
 void TransformationTestsF::disable_rt_info_check() {
