@@ -86,6 +86,7 @@ private:
                                       const NodePtr& reshapeNode,
                                       const NodePtr& reorderNode,
                                       const bool reverseOrder);
+    void MarkReadValueInputsAndAssign(Graph& graph);
 };
 
 }   // namespace intel_cpu

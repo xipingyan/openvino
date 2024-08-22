@@ -348,6 +348,9 @@ public:
     const std::string& getStateName() const {
         return stateName;
     }
+    void setStateName(const std::string& name) {
+        stateName = name;
+    }
 
     void addOriginalLayer(const std::string& layerName);
 

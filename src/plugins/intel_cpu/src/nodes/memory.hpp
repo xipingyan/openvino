@@ -73,12 +73,12 @@ public:
     bool needPrepareParams() const override { return false; }
 
     void assignState(MemStatePtr newState);
+    MemoryInputBase& getInputNode();
 
 protected:
     virtual void runStatic(dnnl::stream strm) = 0;
     virtual void runDynamic(dnnl::stream strm) = 0;
     virtual void assignExtMemory(const MemoryPtr& mem, const MemoryDescPtr& memDesc) = 0;
-    MemoryInputBase& getInputNode();
 
 private:
     /**
@@ -152,13 +152,14 @@ public:
     MemoryOutputBase& getOutputNode();
     void assignState(MemStatePtr newState) override final; // NOLINT
 
+    MemStatePtr getAssignedState() const {
+        return state;
+    }
+
 protected:
     virtual void runStatic(dnnl::stream strm) = 0;
     virtual void runDynamic(dnnl::stream strm) = 0;
     virtual void assignStateHook() = 0;
-    MemStatePtr getAssignedState() const {
-        return state;
-    }
 
 private:
     /**

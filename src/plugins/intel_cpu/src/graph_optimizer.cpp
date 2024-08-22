@@ -200,6 +200,8 @@ void GraphOptimizer::ApplyImplSpecificGraphOptimizations(Graph &graph) {
     graph.RemoveDroppedNodes();
 
     graph.RemoveDroppedEdges();
+
+    MarkReadValueInputsAndAssign(graph);
 }
 
 void GraphOptimizer::FuseConvMatmulFCDeconvAndDQScales(Graph &graph) {
@@ -3183,6 +3185,108 @@ void GraphOptimizer::MatchSdpaKvCache(Graph &graph) {
 
         graph.AddNode(memInputSdpa);
         graph.AddNode(memOutputStub);
+    }
+}
+
+// Don't change graph, just add flag, so make sure it is called at last.
+void GraphOptimizer::MarkReadValueInputsAndAssign(Graph& graph) {
+    std::cout << "== MarkReadValueInputsAndAssign" << std::endl;
+    auto& graphNodes = graph.GetNodes();
+
+    auto markParentNodes = [](const NodePtr& node, const std::string& stateName) {
+        int recursive_deep = 0;
+#define MAX_RECURSIVE_DEEP_MARK_NODE 10
+        std::function<void(ov::intel_cpu::NodePtr, std::string)> mark_node =
+            [&mark_node, &stateName, &recursive_deep](ov::intel_cpu::NodePtr node, std::string rv_friendly_name) {
+                std::cout << "---------------->" << node->getName();
+                if (!node->isExecutable()) {
+                    std::cout << ", !node->isExecutable()" << std::endl;
+                    return;
+                }
+
+                recursive_deep++;
+                if (recursive_deep > MAX_RECURSIVE_DEEP_MARK_NODE) {
+                    std::cout << std::endl;
+                    return;
+                }
+
+                // Check whether current node have same successor[rv_friendly_name].
+                int rd = 0;
+#define MAX_RECURSIVE_DEEP_SUCCESSOR 10
+                bool final_successor_is_rv = true;
+                std::function<void(ov::intel_cpu::NodePtr)> check_successor =
+                    [&final_successor_is_rv, &check_successor, &rd, &rv_friendly_name](ov::intel_cpu::NodePtr node) {
+                        rd++;
+                        if (rd > MAX_RECURSIVE_DEEP_SUCCESSOR) {
+                            final_successor_is_rv = false;
+                            return;
+                        }
+                        for (size_t i = 0; i < node->getChildEdges().size(); i++) {
+                            auto cur = node->getChildEdgeAt(i)->getChild();
+                            if (cur->getName() != rv_friendly_name) {
+                                check_successor(cur);
+                            }
+                        }
+                        rd--;
+                    };
+                check_successor(node);
+                if (final_successor_is_rv) {
+                    node->setStateName(stateName);
+                    std::cout << "== Mark Node: " << node->getName() << ", set_state_name: " << stateName
+                              << ", node tyne=" << node->getTypeStr() << std::endl;
+                } else {
+                    std::cout << std::endl;
+                    return;
+                }
+                std::cout << std::endl;
+
+                for (size_t i = 0; i < node->getParentEdges().size(); i++) {
+                    mark_node(node->getParentEdgeAt(i)->getParent(), rv_friendly_name);
+                }
+                recursive_deep--;
+            };
+
+        for (size_t i = 0; i < node->getParentEdges().size(); i++) {
+            auto curNode = node->getParentEdgeAt(i)->getParent();
+            mark_node(curNode, node->getName());
+        }
+    };
+    auto markAssign = [](const NodePtr& node, const std::string& stateName) {
+        // Mark ReadValue corresponding Assign node.
+        bool found_assign = false;
+        for (size_t i = 0; i < node->getChildEdges().size(); i++) {
+            auto cur_node = node->getChildEdgeAt(i)->getChild();
+            auto* memoryOutput = dynamic_cast<MemoryOutput*>(cur_node.get());
+            if (memoryOutput) {
+                if (memoryOutput->getInputNode().getAssignedState()->get_name() != stateName) {
+                    return false;
+                }
+                std::cout << "== Mark Node: " << node->getName() << ", set_state_name: " << stateName
+                          << ", node tyne=" << node->getTypeStr() << std::endl;
+                cur_node->setStateName(stateName);
+                found_assign = true;
+                break;
+            }
+        }
+        if (!found_assign) {
+            return false;
+        }
+        return true;
+    };
+
+    for (size_t i = 0; i < graphNodes.size(); i++) {
+        auto node = graphNodes[i];
+        auto* memoryInput = dynamic_cast<MemoryInput*>(node.get());
+        if (!memoryInput) {
+            continue;
+        }
+
+        std::cout << "loop: node " << node->getName() << ", node type=" << node->getTypeStr() << std::endl;
+        std::cout << "memoryInput->getId()=" << memoryInput->getId() << std::endl;
+        auto stateName = memoryInput->getId();
+
+        // markParentNodes(node, stateName);
+        // markAssign(node, stateName);
     }
 }
 
