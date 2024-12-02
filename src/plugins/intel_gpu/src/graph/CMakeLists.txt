@@ -43,6 +43,10 @@ if(OV_COMPILER_IS_INTEL_LLVM)
     target_compile_definitions(${TARGET_NAME} PUBLIC OV_GPU_WITH_SYCL)
 endif()
 
+if(ENABLE_SYCL_RUNTIME)
+    target_compile_definitions(${TARGET_NAME} PUBLIC ENABLE_SYCL_RUNTIME)
+endif()
+
 target_link_libraries(${TARGET_NAME} PUBLIC OpenCL::OpenCL openvino::shape_inference)
 target_link_libraries(${TARGET_NAME} PRIVATE openvino_intel_gpu_kernels
                                              openvino_intel_gpu_runtime

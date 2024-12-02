@@ -145,8 +145,9 @@ Plugin::Plugin() {
     set_device_name("GPU");
     register_primitives();
 
-    // Set OCL runtime which should be always available
-#ifdef OV_GPU_WITH_SYCL
+#if defined(ENABLE_SYCL_RUNTIME)
+    cldnn::device_query device_query(cldnn::engine_types::sycl, cldnn::runtime_types::sycl_lz);
+#elif defined(OV_GPU_WITH_SYCL)
     cldnn::device_query device_query(cldnn::engine_types::sycl, cldnn::runtime_types::ocl);
 #else
     cldnn::device_query device_query(cldnn::engine_types::ocl, cldnn::runtime_types::ocl);
