@@ -4,6 +4,8 @@
 
 set(TARGET_NAME "openvino_intel_gpu_runtime")
 
+find_package(IntelSYCL REQUIRED)
+
 file(GLOB LIBRARY_SOURCES_MAIN
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
@@ -41,6 +43,8 @@ if(NOT BUILD_SHARED_LIBS)
 endif()
 
 target_include_directories(${TARGET_NAME} PUBLIC
+    ${SYCL_INCLUDE_DIR}
+    ${SYCL_INCLUDE_DIR}/sycl
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${INCLUDE_DIR}>)
 
