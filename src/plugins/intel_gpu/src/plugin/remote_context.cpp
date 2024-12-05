@@ -34,7 +34,9 @@ RemoteContextImpl::RemoteContextImpl(const std::string& device_name, std::vector
     const auto engine_type = cldnn::engine_types::ocl;
 #endif
 
-    const auto runtime_type = cldnn::runtime_types::ocl;
+    // const auto runtime_type = cldnn::runtime_types::ocl;
+    // "Not implemented[SYCL_RUNTIME]. Macro distingguish"
+    const auto runtime_type = cldnn::runtime_types::sycl_lz;
 
     m_engine = cldnn::engine::create(engine_type, runtime_type, devices.front());
 

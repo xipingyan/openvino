@@ -253,9 +253,13 @@ std::shared_ptr<cldnn::engine> engine::create(engine_types engine_type, runtime_
     std::shared_ptr<cldnn::engine> ret;
     switch (engine_type) {
 #ifdef OV_GPU_WITH_SYCL
-    case engine_types::sycl:
-        ret = ocl::create_sycl_engine(device, runtime_type);
-        break;
+    case engine_types::sycl: {
+        if (runtime_type == runtime_types::sycl_lz) {
+            ret = sycl_lz::create_sycl_lz_engine(device, runtime_type);
+        } else {
+            ret = ocl::create_sycl_engine(device, runtime_type);
+        }
+    } break;
 #endif  // OV_GPU_WITH_SYCL
     case engine_types::ocl:
         ret = ocl::create_ocl_engine(device, runtime_type);

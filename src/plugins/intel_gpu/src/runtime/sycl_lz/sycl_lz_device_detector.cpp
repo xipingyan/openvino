@@ -3,7 +3,7 @@
 //
 
 #include "sycl_lz_device_detector.hpp"
-// #include "intel_gpu/runtime/debug_configuration.hpp"
+#include "intel_gpu/runtime/debug_configuration.hpp"
 #include "sycl_lz_device.hpp"
 // #include "ocl_common.hpp"
 
@@ -155,12 +155,17 @@ std::vector<device::ptr> sycl_lz_device_detector::create_device_list() const {
     for (auto platform : sycl::platform::get_platforms()) {
         try {
             static constexpr auto INTEL_PLATFORM_VENDOR = "Intel(R) Corporation";
-            static constexpr auto INTEL_PLATFORM_NAME = "Intel(R) Level-Zero";
+            // oneAPI 2024
+            static constexpr auto INTEL_PLATFORM_NAME_2024 = "Intel(R) Level-Zero";
+            // oneAPI 2025
+            static constexpr auto INTEL_PLATFORM_NAME_2025 = "Intel(R) oneAPI Unified Runtime over Level-Zero";
+
             std::vector<sycl_lz::sycl_lz_device> devices;
             if (platform.get_info<sycl::info::platform::vendor>() != INTEL_PLATFORM_VENDOR) {
                 continue;
             }
-            if (platform.get_info<sycl::info::platform::name>() != INTEL_PLATFORM_NAME) {
+
+            if (!one_of(platform.get_info<sycl::info::platform::name>(), INTEL_PLATFORM_NAME_2024, INTEL_PLATFORM_NAME_2025)) {
                 continue;
             }
 
@@ -172,12 +177,14 @@ std::vector<device::ptr> sycl_lz_device_detector::create_device_list() const {
                 supported_devices.emplace_back(std::make_shared<sycl_lz_device>(device, platform));
             }
         } catch (std::exception& ex) {
-            // GPU_DEBUG_LOG << "Devices query/creation failed for " << platform.get_info<sycl::info::platform::name>()
-            //               << ": " << ex.what() << std::endl;
-            // GPU_DEBUG_LOG << "Platform is skipped" << std::endl;
+            GPU_DEBUG_LOG << "Devices query/creation failed for " << platform.get_info<sycl::info::platform::name>()
+                          << ": " << ex.what() << std::endl;
+            GPU_DEBUG_LOG << "Platform is skipped" << std::endl;
             continue;
         }
     }
+
+    GPU_DEBUG_LOG << "supported_devices num: " << supported_devices.size() << std::endl;
     return supported_devices;
 }
 
