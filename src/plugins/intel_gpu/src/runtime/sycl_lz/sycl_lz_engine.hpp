@@ -11,6 +11,7 @@
 #include "intel_gpu/runtime/stream.hpp"
 #include "sycl/sycl.hpp"
 #include "sycl_lz_device.hpp"
+#include "sycl_lz_ext.hpp"
 
 namespace cldnn {
 namespace sycl_lz {
@@ -50,6 +51,7 @@ public:
 
     ::sycl::context& get_sycl_context() const;
     std::unique_ptr<::sycl::context> sycl_context = nullptr;
+    const ::sycl_lz::UsmHelper& get_usm_helper() const;
 
 private:
     std::unique_ptr<sycl::queue> _queue = nullptr;

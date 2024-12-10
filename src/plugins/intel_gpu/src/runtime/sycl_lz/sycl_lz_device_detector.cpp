@@ -174,7 +174,8 @@ std::vector<device::ptr> sycl_lz_device_detector::create_device_list() const {
                 if (q.get_backend() != sycl::backend::ext_oneapi_level_zero) {
                     continue;
                 }
-                supported_devices.emplace_back(std::make_shared<sycl_lz_device>(device, platform));
+
+                supported_devices.emplace_back(std::make_shared<sycl_lz_device>(device, q.get_context(), platform));
             }
         } catch (std::exception& ex) {
             GPU_DEBUG_LOG << "Devices query/creation failed for " << platform.get_info<sycl::info::platform::name>()
@@ -184,7 +185,7 @@ std::vector<device::ptr> sycl_lz_device_detector::create_device_list() const {
         }
     }
 
-    GPU_DEBUG_LOG << "supported_devices num: " << supported_devices.size() << std::endl;
+    GPU_DEBUG_TRACE << "supported_devices num: " << supported_devices.size() << std::endl;
     return supported_devices;
 }
 

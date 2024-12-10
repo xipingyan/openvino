@@ -4,7 +4,7 @@
 
 #include "sycl_lz_engine.hpp"
 #include "sycl_lz_stream.hpp"
-
+#include "sycl_lz_memory.hpp"
 
 namespace cldnn {
 namespace sycl_lz {
@@ -14,13 +14,12 @@ sycl_lz_engine::sycl_lz_engine(const device::ptr dev, runtime_types runtime_type
 : engine(dev) {
     GPU_DEBUG_INFO << "create sycl_lz_engine" << std::endl;
     // : ocl_engine(dev, runtime_type) {
+
     auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
     auto device = casted_dev->get_device();
 
     // _queue = cldnn::make_unique<sycl::queue>(device);
-    sycl_context = cldnn::make_unique<::sycl::context>(device);
-
-    // sycl_context = cldnn::make_unique<::sycl::context>(sycl::make_context<::sycl::backend::opencl>(get_cl_context().get()));
+    sycl_context = cldnn::make_unique<::sycl::context>(device); // "MAYBE NOT NEED. sycl_context"
 }
 
 stream::ptr sycl_lz_engine::create_stream(const ExecutionConfig& config) const {
@@ -41,47 +40,45 @@ std::shared_ptr<cldnn::engine> create_sycl_lz_engine(const device::ptr device, r
     return *sycl_context;
 }
 
+const ::sycl_lz::UsmHelper& sycl_lz_engine::get_usm_helper() const {
+    auto sycl_lz_device = std::dynamic_pointer_cast<sycl_lz::sycl_lz_device>(_device);
+    OPENVINO_ASSERT(sycl_lz_device, "[GPU] Invalid device type for sycl_lz::sycl_lz_device");
+    return sycl_lz_device->get_usm_helper();
+}
+
 memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type type, bool reset) {
     OPENVINO_ASSERT(!layout.is_dynamic() || layout.has_upper_bound(), "[GPU] Can't allocate memory for dynamic layout");
 
     check_allocatable(layout, type);
 
     // Todo refer: memory::ptr ocl_engine::allocate_memory(const layout& layout, allocation_type type, bool reset)
+    GPU_DEBUG_LOG << "layout=" << layout << ", type=" << type << ", reset = " << reset << std::endl;
 
-    memory::ptr res = nullptr;
     // auto X = sycl::malloc_shared<float>(length, q);
 
-    // try {
-    //     memory::ptr res = nullptr;
-    //     if (layout.format.is_image_2d()) {
-    //         res = std::make_shared<ocl::gpu_image2d>(this, layout);
-    //     } else if (type == allocation_type::cl_mem) {
-    //         res = std::make_shared<ocl::gpu_buffer>(this, layout);
-    //     } else {
-    //         res = std::make_shared<ocl::gpu_usm>(this, layout, type);
-    //     }
+    try {
+        memory::ptr res = nullptr;
+        if (layout.format.is_image_2d()) {
+            GPU_DEBUG_LOG << "Not implemented. layout.format = " << layout.format << std::endl;
+            // res = std::make_shared<ocl::gpu_image2d>(this, layout);
+        } else if (type == allocation_type::cl_mem) {
+            GPU_DEBUG_LOG << "Not implemented. layout.format = " << layout.format << std::endl;
+            // res = std::make_shared<ocl::gpu_buffer>(this, layout);
+        } else {
+            res = std::make_shared<sycl_lz::gpu_usm>(this, layout, type);
+        }
 
-    //     if (reset || res->is_memory_reset_needed(layout)) {
-    //         auto ev = res->fill(get_service_stream());
-    //         if (ev) {
-    //             get_service_stream().wait_for_events({ev});
-    //         }
-    //     }
+        if (reset || res->is_memory_reset_needed(layout)) {
+            auto ev = res->fill(get_service_stream());
+            if (ev) {
+                get_service_stream().wait_for_events({ev});
+            }
+        }
 
-    //     return res;
-    // } catch (const cl::Error& clErr) {
-    //     switch (clErr.err()) {
-    //     case CL_MEM_OBJECT_ALLOCATION_FAILURE:
-    //     case CL_OUT_OF_RESOURCES:
-    //     case CL_OUT_OF_HOST_MEMORY:
-    //     case CL_INVALID_BUFFER_SIZE:
-    //         OPENVINO_THROW("[GPU] out of GPU resources");
-    //     default:
-    //         OPENVINO_THROW("[GPU] buffer allocation failed");
-    //     }
-    // }
-    DEBUG_PRINT("Not implemented. return null memory::ptr.");
-    return res;
+        return res;
+    } catch (::sycl::exception& e) {
+        OPENVINO_THROW("[GPU] buffer allocation failed: ", e.what());
+    }
 }
 memory_ptr sycl_lz_engine::reinterpret_handle(const layout& new_layout, shared_mem_params params) {
     DEBUG_PRINT("Not implemented.");
@@ -96,13 +93,57 @@ bool sycl_lz_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) 
     return false;
 }
 bool sycl_lz_engine::check_allocatable(const layout& layout, allocation_type type) {
-    // Todo Refer: bool ocl_engine::check_allocatable(const layout& layout, allocation_type type) {
-    DEBUG_PRINT("Not implemented.");
-    return false;
+    OPENVINO_ASSERT(supports_allocation(type) || type == allocation_type::cl_mem, "[GPU] Unsupported allocation type: ", type);
+
+  bool exceed_allocatable_mem_size = (layout.bytes_count() > get_device_info().max_alloc_mem_size);
+
+  // When dynamic shape upper bound makes bigger buffer, then return false.
+  if (exceed_allocatable_mem_size && layout.is_dynamic()) {
+      OPENVINO_ASSERT(layout.has_upper_bound(), "[GPU] Dynamic shape without upper bound tries to allocate");
+      return false;
+  }
+
+  OPENVINO_ASSERT(!exceed_allocatable_mem_size,
+                  "[GPU] Exceeded max size of memory object allocation: ",
+                  "requested ",
+                  layout.bytes_count(),
+                  " bytes, "
+                  "but max alloc size supported by device is ",
+                  get_device_info().max_alloc_mem_size,
+                  " bytes.",
+                  "Please try to reduce batch size or use lower precision.");
+
+  auto used_mem =
+      get_used_device_memory(allocation_type::usm_device) + get_used_device_memory(allocation_type::usm_host);
+  auto exceed_available_mem_size = (layout.bytes_count() + used_mem > get_max_memory_size());
+
+  // When dynamic shape upper bound makes bigger buffer, then return false.
+  if (exceed_available_mem_size && layout.is_dynamic()) {
+      OPENVINO_ASSERT(layout.has_upper_bound(), "[GPU] Dynamic shape without upper bound tries to allocate");
+      return false;
+  }
+
+#ifdef __unix__
+    // Prevent from being killed by Ooo Killer of Linux
+    OPENVINO_ASSERT(!exceed_available_mem_size,
+                    "[GPU] Exceeded max size of memory allocation: ",
+                    "Required ", layout.bytes_count(), " bytes, already occupied : ", used_mem, " bytes, ",
+                    "but available memory size is ", get_max_memory_size(), " bytes");
+#else
+    if (exceed_available_mem_size) {
+        GPU_DEBUG_COUT << "[Warning] [GPU] Exceeded max size of memory allocation: " << "Required " << layout.bytes_count() << " bytes, already occupied : "
+                       << used_mem << " bytes, but available memory size is " << get_max_memory_size() << " bytes" << std::endl;
+        GPU_DEBUG_COUT << "Please note that performance might drop due to memory swap." << std::endl;
+        return false;
+    }
+#endif
+
+    return true;
 }
 
 void* sycl_lz_engine::get_user_context() const {
     DEBUG_PRINT("Not implemented.");
+
     return nullptr;
 }
 
@@ -122,7 +163,8 @@ stream& sycl_lz_engine::get_service_stream() const {
 
 kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
     DEBUG_PRINT("Not implemented.");
-    return nullptr;
+    // OPENVINO_ASSERT(downcast<const ocl::ocl_kernel>(kernel.get()) != nullptr);
+    return kernel;
 }
 
 #ifdef ENABLE_ONEDNN_FOR_GPU

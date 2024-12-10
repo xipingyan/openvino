@@ -200,7 +200,7 @@ bool get_imad_support(const sycl::device& device) {
 
 device_info init_device_info(const sycl::device& device) {
     device_info info = {};
-    DEBUG_PRINT(init_device_info);
+    DEBUG_PRINT("init_device_info");
 
     info.vendor_id = static_cast<uint32_t>(device.get_info<sycl::info::device::vendor_id>());
     info.dev_name = device.get_info<sycl::info::device::name>();
@@ -412,11 +412,13 @@ memory_capabilities init_memory_caps(const sycl::device& device, const device_in
 // , _usm_helper(new cl::UsmHelper(_context, _device, use_unified_shared_memory())) {
 // }
 
-sycl_lz_device::sycl_lz_device(const sycl::device dev, const sycl::platform& platform)
+sycl_lz_device::sycl_lz_device(const sycl::device dev, const sycl::context ctx, const sycl::platform& platform)
     : _device(dev),
+      _context(ctx),
       _platform(platform),
       _info(init_device_info(dev)),
-      _mem_caps(init_memory_caps(dev, _info)) {}
+      _mem_caps(init_memory_caps(dev, _info)),
+      _usm_helper(new ::sycl_lz::UsmHelper(ctx, dev, use_unified_shared_memory())) {}
 
 bool sycl_lz_device::is_same(const device::ptr other) {
     auto casted = downcast<sycl_lz_device>(other.get());

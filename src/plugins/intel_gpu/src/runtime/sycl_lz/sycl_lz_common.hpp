@@ -8,17 +8,16 @@
 
 // #include "ocl/ocl_device_detector.hpp"
 #include "openvino/core/except.hpp"
+#include "sycl_lz_ext.hpp"
 
 #include <vector>
 
 namespace cldnn {
 namespace sycl_lz {
 
-#ifndef DEBUG_PRINT
-#    define DEBUG_PRINT(X) std::cout << "== " << __FILE__ << ":" << __LINE__ << " : " << #X << " = " << X << std::endl
-#endif
 // using ocl_queue_type = cl::CommandQueue;
 // using ocl_kernel_type = cl::KernelIntel;
+using sycl_lz_kernel_type = ::sycl_lz::SyclLzKernelIntel;
 
 // class ocl_error : public ov::Exception {
 // public:

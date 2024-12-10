@@ -14,19 +14,24 @@ namespace sycl_lz {
 sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConfig& config)
     : stream(config.get_property(ov::intel_gpu::queue_type), stream::get_expected_sync_method(config)),
       _engine(engine) {
-    DEBUG_PRINT("Not implemented.");
     // : ocl_stream(engine, config) {
     // sycl_queue = cldnn::make_unique<::sycl::queue>(
     //     ::sycl::make_queue<::sycl::backend::opencl>(get_cl_queue().get(), engine.get_sycl_context()));
+    auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
+    OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
+
+    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_device());
 }
 
 sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConfig& config, void* handle)
     : stream(config.get_property(ov::intel_gpu::queue_type), stream::get_expected_sync_method(config)),
       _engine(engine) {
     DEBUG_PRINT("Not implemented.");
-    //  ocl_stream(engine, config, handle)
-    // sycl_queue = cldnn::make_unique<::sycl::queue>(
-    //     ::sycl::make_queue<::sycl::backend::opencl>(get_cl_queue().get(), engine.get_sycl_context()));
+
+    auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
+    OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
+
+    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_device());
 }
 
 ::sycl::queue& sycl_lz_stream::get_sycl_queue() {
