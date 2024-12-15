@@ -19,6 +19,7 @@ enum class impl_types : uint8_t {
     ocl = 1 << 2,
     onednn = 1 << 3,
     sycl = 1 << 4,
+    sycl_lz = 1 << 5,
     any = 0xFF,
 };
 

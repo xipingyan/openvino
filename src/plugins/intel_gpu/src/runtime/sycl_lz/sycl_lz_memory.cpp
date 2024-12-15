@@ -94,13 +94,12 @@ void gpu_usm::unlock(const stream& /* stream */) {
 }
 
 event::ptr gpu_usm::fill(stream& stream, unsigned char pattern, bool blocking) {
-    DEBUG_PRINT("Not implemented.");
+    if (_bytes_count == 0) {
+        GPU_DEBUG_TRACE_DETAIL << "Skip gpu_usm::fill for 0 size tensor" << std::endl;
+        return nullptr;
+    }
+    DEBUG_PRINT("Not implemented. _bytes_count = " << _bytes_count);
     return nullptr;
-
-    // if (_bytes_count == 0) {
-    //     GPU_DEBUG_TRACE_DETAIL << "Skip gpu_usm::fill for 0 size tensor" << std::endl;
-    //     return nullptr;
-    // }
     // auto& cl_stream = downcast<sycl_lz_stream>(stream);
     // auto ev = stream.create_base_event();
     // cl::Event& ev_ocl = downcast<sycl_lz_event>(ev.get())->get();
