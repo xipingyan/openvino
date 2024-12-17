@@ -23,7 +23,7 @@ public:
     stream_ptr create_stream(const ExecutionConfig& config) const override;
     stream_ptr create_stream(const ExecutionConfig& config, void *handle) const override;
 
-    engine_types type() const override { return engine_types::sycl; };
+    engine_types type() const override { return engine_types::sycl_lz; };
     runtime_types runtime_type() const override { return runtime_types::sycl_lz; };
 
     memory_ptr allocate_memory(const layout& layout, allocation_type type, bool reset = true) override;

@@ -252,6 +252,15 @@ void engine::subtract_memory_used(uint64_t bytes, allocation_type type) {
 std::shared_ptr<cldnn::engine> engine::create(engine_types engine_type, runtime_types runtime_type, const device::ptr device) {
     std::shared_ptr<cldnn::engine> ret;
     switch (engine_type) {
+#ifdef OV_GPU_WITH_SYCL_LZ
+    case engine_types::sycl_lz: {
+        if (runtime_type == runtime_types::sycl_lz) {
+            ret = sycl_lz::create_sycl_lz_engine(device, runtime_type);
+        } else {
+            throw std::runtime_error("Invalid runtime type for engine_types::sycl_lz.");
+        }
+    } break;
+#endif
 #ifdef OV_GPU_WITH_SYCL
     case engine_types::sycl: {
         if (runtime_type == runtime_types::sycl_lz) {
@@ -268,7 +277,8 @@ std::shared_ptr<cldnn::engine> engine::create(engine_types engine_type, runtime_
         throw std::runtime_error("Invalid engine type");
     }
     const auto& info = device->get_info();
-    GPU_DEBUG_INFO << "Selected Device: " << info.dev_name << std::endl;
+    GPU_DEBUG_INFO << "Selected Device: " << info.dev_name << ", engine_type=" << engine_type
+                   << ", runtime_type=" << runtime_type << std::endl;
     return ret;
 }
 

@@ -16,10 +16,10 @@
     #define OV_GPU_WITH_SYCL 0
 #endif
 
-#if !defined(ENABLE_SYCL_RUNTIME)
-    #define ENABLE_SYCL_RUNTIME 0
+#if !defined(OV_GPU_WITH_SYCL_LZ)
+    #define OV_GPU_WITH_SYCL_LZ 0
 #else
-    #define ENABLE_SYCL_RUNTIME 1
+    #define OV_GPU_WITH_SYCL_LZ 1
 #endif
 
 #define OV_GPU_WITH_OCL 1

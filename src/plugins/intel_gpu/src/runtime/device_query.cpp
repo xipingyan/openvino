@@ -18,16 +18,21 @@ device_query::device_query(engine_types engine_type,
                            int ctx_device_id,
                            int target_tile_id) {
     switch (engine_type) {
+    case engine_types::sycl_lz:
+        if (runtime_type == runtime_types::sycl_lz) {
+            sycl_lz::sycl_lz_device_detector sycl_lz_detector;
+            _available_devices =
+                sycl_lz_detector.get_available_devices(user_context, user_device, ctx_device_id, target_tile_id);
+        } else {
+            throw std::runtime_error("Unsupported runtime type for sycl_lz engine");
+        }
+        break;
     case engine_types::sycl:
     case engine_types::ocl: {
         if (runtime_type == runtime_types::ocl) {
             ocl::ocl_device_detector ocl_detector;
             _available_devices =
                 ocl_detector.get_available_devices(user_context, user_device, ctx_device_id, target_tile_id);
-        } else if (runtime_type == runtime_types::sycl_lz) {
-            sycl_lz::sycl_lz_device_detector sycl_lz_detector;
-            _available_devices =
-                sycl_lz_detector.get_available_devices(user_context, user_device, ctx_device_id, target_tile_id);
         } else {
             throw std::runtime_error("Unsupported runtime type for ocl engine");
         }

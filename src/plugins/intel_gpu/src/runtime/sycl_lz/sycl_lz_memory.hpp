@@ -64,5 +64,19 @@ protected:
     static allocation_type detect_allocation_type(const sycl_lz_engine* engine, const void*& buffer);
 };
 
+struct sycl_lz_surfaces_lock : public surfaces_lock {
+    sycl_lz_surfaces_lock(std::vector<memory::ptr> mem, const stream& stream) {
+        GPU_DEBUG_LOG << "Not implemented[SYCL_RUNTIME]. " << std::endl;
+    }
+
+    ~sycl_lz_surfaces_lock() = default;
+private:
+    std::vector<void*> get_handles(std::vector<memory::ptr> mem) const {
+        return _handles;
+    }
+    std::vector<void*> _handles;
+    // std::unique_ptr<cl::SharedSurfLock> _lock;
+};
+
 }  // namespace sycl_lz
 }  // namespace cldnn

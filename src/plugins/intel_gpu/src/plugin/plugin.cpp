@@ -145,8 +145,8 @@ Plugin::Plugin() {
     set_device_name("GPU");
     register_primitives();
 
-#if defined(ENABLE_SYCL_RUNTIME)
-    cldnn::device_query device_query(cldnn::engine_types::sycl, cldnn::runtime_types::sycl_lz);
+#if OV_GPU_WITH_SYCL_LZ
+    cldnn::device_query device_query(cldnn::engine_types::sycl_lz, cldnn::runtime_types::sycl_lz);
 #elif defined(OV_GPU_WITH_SYCL)
     cldnn::device_query device_query(cldnn::engine_types::sycl, cldnn::runtime_types::ocl);
 #else

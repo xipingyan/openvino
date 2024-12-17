@@ -44,6 +44,8 @@ inline std::ostream& operator<<(std::ostream& out, const impl_types& impl_type) 
         case impl_types::common: out << "common"; break;
         case impl_types::ocl: out << "ocl"; break;
         case impl_types::onednn: out << "onednn"; break;
+        case impl_types::sycl: out << "sycl"; break;
+        case impl_types::sycl_lz: out << "sycl_lz"; break;
         case impl_types::any: out << "any"; break;
         default: out << "unknown"; break;
     }

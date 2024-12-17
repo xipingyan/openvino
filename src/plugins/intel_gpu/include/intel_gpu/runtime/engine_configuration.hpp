@@ -11,13 +11,15 @@ namespace cldnn {
 /// @brief Defines available engine types
 enum class engine_types : int32_t {
     ocl,
-    sycl
+    sycl,    // sycl is based on OpenCL backend.
+    sycl_lz  // sycl_lz is based on LevelZero backend.
 };
 
 inline std::ostream& operator<<(std::ostream& os, const engine_types& type) {
     switch (type) {
     case engine_types::ocl: os << "ocl"; break;
     case engine_types::sycl: os << "sycl"; break;
+    case engine_types::sycl_lz: os << "sycl_lz"; break;
     default: os << "unknown"; break;
     }
 

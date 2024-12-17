@@ -22,11 +22,16 @@ template <class PType>
 struct typed_primitive_sycl_lz_impl : public typed_primitive_impl<PType> {
     const engine* _engine;
 
-    typed_primitive_sycl_lz_impl(const engine& engine, const ExecutionConfig& config, std::shared_ptr<WeightsReorderParams> weights_reorder = nullptr)
+    typed_primitive_sycl_lz_impl(const engine& engine,
+                                 const ExecutionConfig& config,
+                                 std::shared_ptr<WeightsReorderParams> weights_reorder = nullptr)
         : typed_primitive_impl<PType>(weights_reorder, "sycl_lz_kernel"),
-        _engine(&engine) { }
+          _engine(&engine) {
+        GPU_DEBUG_LOG << "== typed_primitive_sycl_lz_impl sycl_lz_kernel base class." << std::endl;
+    }
 
     typed_primitive_sycl_lz_impl() : typed_primitive_impl<PType>({}, "undef"), _engine(nullptr) {
+        GPU_DEBUG_LOG << "== typed_primitive_sycl_lz_impl undef base class." << std::endl;
     }
 
     bool is_cpu() const override { return false; }

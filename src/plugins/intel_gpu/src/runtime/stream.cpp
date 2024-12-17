@@ -5,6 +5,7 @@
 #include "intel_gpu/runtime/stream.hpp"
 
 #include "ocl/ocl_stream.hpp"
+#include "sycl_lz/sycl_lz_stream.hpp"
 
 #include <stdexcept>
 
@@ -12,6 +13,8 @@ namespace cldnn {
 
 QueueTypes stream::detect_queue_type(engine_types engine_type, void* queue_handle) {
     switch (engine_type) {
+        case engine_types::sycl_lz:
+            return sycl_lz::sycl_lz_stream::detect_queue_type(queue_handle);
         case engine_types::sycl:
         case engine_types::ocl:
             return ocl::ocl_stream::detect_queue_type(queue_handle);
