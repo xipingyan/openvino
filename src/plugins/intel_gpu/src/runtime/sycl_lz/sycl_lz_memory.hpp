@@ -31,8 +31,15 @@ struct lockable_gpu_mem {
 // Only implement gpu_usm buffer currently.
 
 struct gpu_usm : public lockable_gpu_mem, public memory {
-    gpu_usm(sycl_lz_engine* engine, const layout& new_layout, void*& usm_buffer, allocation_type type, std::shared_ptr<MemoryTracker> mem_tracker);
-    gpu_usm(sycl_lz_engine* engine, const layout& new_layout, void*& usm_buffer, std::shared_ptr<MemoryTracker> mem_tracker);
+    gpu_usm(sycl_lz_engine* engine,
+            const layout& new_layout,
+            const ::sycl_lz::UsmMemory& usm_buffer,
+            allocation_type type,
+            std::shared_ptr<MemoryTracker> mem_tracker);
+    gpu_usm(sycl_lz_engine* engine,
+            const layout& new_layout,
+            const ::sycl_lz::UsmMemory& usm_buffer,
+            std::shared_ptr<MemoryTracker> mem_tracker);
     gpu_usm(sycl_lz_engine* engine, const layout& layout, allocation_type type);
 
     void* lock(const stream& stream, mem_lock_type type = mem_lock_type::read_write) override;
@@ -61,7 +68,7 @@ protected:
     ::sycl_lz::UsmMemory _buffer;
     // ::sycl_lz::UsmMemory _host_buffer;
 
-    static allocation_type detect_allocation_type(const sycl_lz_engine* engine, const void*& buffer);
+    static allocation_type detect_allocation_type(const sycl_lz_engine* engine, const ::sycl_lz::UsmMemory& buffer);
 };
 
 struct sycl_lz_surfaces_lock : public surfaces_lock {

@@ -54,6 +54,23 @@ gpu_usm::gpu_usm(sycl_lz_engine* engine, const layout& layout, allocation_type t
     m_mem_tracker = std::make_shared<MemoryTracker>(engine, _buffer.get(), layout.bytes_count(), type);
 }
 
+gpu_usm::gpu_usm(sycl_lz_engine* engine,
+                 const layout& new_layout,
+                 const ::sycl_lz::UsmMemory& buffer,
+                 allocation_type type,
+                 std::shared_ptr<MemoryTracker> mem_tracker)
+    : lockable_gpu_mem(),
+      memory(engine, new_layout, type, mem_tracker),
+      _buffer(buffer) {}
+
+gpu_usm::gpu_usm(sycl_lz_engine* engine,
+                 const layout& new_layout,
+                 const ::sycl_lz::UsmMemory& buffer,
+                 std::shared_ptr<MemoryTracker> mem_tracker)
+    : lockable_gpu_mem(),
+      memory(engine, new_layout, detect_allocation_type(engine, buffer), mem_tracker),
+      _buffer(buffer) {}
+
 void* gpu_usm::lock(const stream& stream, mem_lock_type type) {
     std::lock_guard<std::mutex> locker(_mutex);
     if (0 == _lock_count) {
@@ -228,28 +245,26 @@ shared_mem_params gpu_usm::get_internal_params() const {
 }
 
 allocation_type gpu_usm::detect_allocation_type(const sycl_lz_engine* engine, const void* mem_ptr) {
-    DEBUG_PRINT("Not implemented.");
-    // auto cl_alloc_type = engine->get_usm_helper().get_usm_allocation_type(mem_ptr);
+    sycl::usm::alloc sycl_alloc_type = engine->get_usm_helper().get_usm_allocation_type(mem_ptr);
 
-    // allocation_type res;
-    // switch (cl_alloc_type) {
-    //     case CL_MEM_TYPE_DEVICE_INTEL: res = allocation_type::usm_device; break;
-    //     case CL_MEM_TYPE_HOST_INTEL: res = allocation_type::usm_host; break;
-    //     case CL_MEM_TYPE_SHARED_INTEL: res = allocation_type::usm_shared; break;
-    //     default: res = allocation_type::unknown;
-    // }
+    allocation_type res;
+    switch (sycl_alloc_type) {
+        case sycl::usm::alloc::device : res = allocation_type::usm_device; break;
+        case sycl::usm::alloc::host: res = allocation_type::usm_host; break;
+        case sycl::usm::alloc::shared: res = allocation_type::usm_shared; break;
+        default: res = allocation_type::unknown;
+    }
 
-    return allocation_type::usm_shared;
+    GPU_DEBUG_LOG << "detect_allocation_type, mem_ptr[" << mem_ptr << "], sycl_alloc_type=" << res << std::endl;
+    return res;
 }
 
-allocation_type gpu_usm::detect_allocation_type(const sycl_lz_engine* engine, const void* & buffer) {
-    DEBUG_PRINT("Not implemented.");
-    return allocation_type::usm_shared;
-    // auto alloc_type = detect_allocation_type(engine, buffer.get());
-    // OPENVINO_ASSERT(alloc_type == allocation_type::usm_device ||
-    //                 alloc_type == allocation_type::usm_host ||
-    //                 alloc_type == allocation_type::usm_shared, "[GPU] Unsupported USM alloc type: " + to_string(alloc_type));
-    // return alloc_type;
+allocation_type gpu_usm::detect_allocation_type(const sycl_lz_engine* engine, const ::sycl_lz::UsmMemory& buffer) {
+    auto alloc_type = detect_allocation_type(engine, buffer.get());
+    OPENVINO_ASSERT(alloc_type == allocation_type::usm_device ||
+                    alloc_type == allocation_type::usm_host ||
+                    alloc_type == allocation_type::usm_shared, "[GPU] Unsupported USM alloc type: " + to_string(alloc_type));
+    return alloc_type;
 }
 
 }  // namespace sycl_lz

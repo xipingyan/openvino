@@ -85,9 +85,40 @@ memory_ptr sycl_lz_engine::reinterpret_handle(const layout& new_layout, shared_m
     return nullptr;
 }
 memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout& new_layout) {
-    DEBUG_PRINT("Not implemented.");
+    OPENVINO_ASSERT(memory.get_engine() == this, "[GPU] trying to reinterpret buffer allocated by a different engine");
+    OPENVINO_ASSERT(new_layout.format.is_image() == memory.get_layout().format.is_image(),
+                    "[GPU] trying to reinterpret between image and non-image layouts. Current: ",
+                    memory.get_layout().format.to_string(), " Target: ", new_layout.format.to_string());
+
+    try {
+        if (new_layout.format.is_image_2d()) {
+            DEBUG_PRINT("Not implemented.");
+            return nullptr;
+            // return std::make_shared<ocl::gpu_image2d>(this,
+            //                                           new_layout,
+            //                                           reinterpret_cast<const ocl::gpu_image2d&>(memory).get_buffer(),
+            //                                           memory.get_mem_tracker());
+        } else if (memory_capabilities::is_usm_type(memory.get_allocation_type())) {
+            return std::make_shared<sycl_lz::gpu_usm>(this,
+                                                      new_layout,
+                                                      reinterpret_cast<const sycl_lz::gpu_usm&>(memory).get_buffer(),
+                                                      memory.get_allocation_type(),
+                                                      memory.get_mem_tracker());
+        } else {
+            DEBUG_PRINT("Not implemented.");
+            return nullptr;
+            // return std::make_shared<ocl::gpu_buffer>(this,
+            //                                          new_layout,
+            //                                          reinterpret_cast<const ocl::gpu_buffer&>(memory).get_buffer(),
+            //                                          memory.get_mem_tracker());
+        }
+    } catch (sycl::exception const& e) {
+        OPENVINO_THROW("[GPU] reinterpret_buffer failed: ", e.what());
+    }
+
     return nullptr;
 }
+
 bool sycl_lz_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) {
     DEBUG_PRINT("Not implemented.");
     return false;
