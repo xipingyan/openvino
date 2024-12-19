@@ -120,7 +120,21 @@ memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout
 }
 
 bool sycl_lz_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) {
-    DEBUG_PRINT("Not implemented.");
+    if (mem1.get_engine() != this || mem2.get_engine() != this)
+        return false;
+    if (mem1.get_allocation_type() != mem2.get_allocation_type())
+        return false;
+    if (&mem1 == &mem2)
+        return true;
+
+    DEBUG_PRINT("Not implemented. sycl_lz_engine::is_the_same_buffer");
+    // if (!memory_capabilities::is_usm_type(mem1.get_allocation_type()))
+    //     return (reinterpret_cast<const sycl_lz::gpu_buffer&>(mem1).get_buffer() ==
+    //             reinterpret_cast<const ocl::gpu_buffer&>(mem2).get_buffer());
+    // else
+    //     return (reinterpret_cast<const ocl::gpu_usm&>(mem1).get_buffer() ==
+    //             reinterpret_cast<const ocl::gpu_usm&>(mem2).get_buffer());
+
     return false;
 }
 bool sycl_lz_engine::check_allocatable(const layout& layout, allocation_type type) {

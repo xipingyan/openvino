@@ -21,17 +21,17 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
     OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
 
     sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_device());
+    GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 
 sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConfig& config, void* handle)
     : stream(config.get_property(ov::intel_gpu::queue_type), stream::get_expected_sync_method(config)),
       _engine(engine) {
-    DEBUG_PRINT("Not implemented.");
-
     auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
     OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
 
     sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_device());
+    GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 
 ::sycl::queue& sycl_lz_stream::get_sycl_queue() {
@@ -59,7 +59,7 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                                           const kernel_arguments_data& args,
                                           std::vector<event::ptr> const& deps,
                                           bool is_output) {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_kernel");
     return nullptr;
 }
 event::ptr sycl_lz_stream::enqueue_marker(std::vector<event::ptr> const& deps, bool is_output) {
@@ -71,17 +71,17 @@ event::ptr sycl_lz_stream::group_events(std::vector<event::ptr> const& deps) {
     return nullptr;
 }
 void sycl_lz_stream::wait_for_events(const std::vector<event::ptr>& events) {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::wait_for_events");
 }
 void sycl_lz_stream::enqueue_barrier() {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_barrier");
 }
 event::ptr sycl_lz_stream::create_user_event(bool set) {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::create_user_event");
     return nullptr;
 }
 event::ptr sycl_lz_stream::create_base_event() {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::create_base_event");
     return nullptr;
 }
 
