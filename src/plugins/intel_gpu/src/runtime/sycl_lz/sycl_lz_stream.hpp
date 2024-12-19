@@ -44,6 +44,7 @@ public:
     void enqueue_barrier() override;
     event::ptr create_user_event(bool set) override;
     event::ptr create_base_event() override;
+    event::ptr create_base_event(sycl::event event);
 
     // const cl::UsmHelper& get_usm_helper() const { return _engine.get_usm_helper(); }
 
@@ -52,6 +53,8 @@ public:
 #ifdef ENABLE_ONEDNN_FOR_GPU
     dnnl::stream& get_onednn_stream() override;
 #endif
+
+    ::sycl::queue& get_sycl_queue();
 
 private:
     void sync_events(std::vector<event::ptr> const& deps, bool is_output = false);
@@ -66,7 +69,6 @@ private:
     std::shared_ptr<dnnl::stream> _onednn_stream = nullptr;
 #endif
 
-    ::sycl::queue& get_sycl_queue();
     std::unique_ptr<::sycl::queue> sycl_queue = nullptr;
 };
 

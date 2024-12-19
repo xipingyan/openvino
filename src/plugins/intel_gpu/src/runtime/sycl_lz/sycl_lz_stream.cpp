@@ -7,6 +7,7 @@
 #include "intel_gpu/runtime/utils.hpp"
 #include "oneapi/dnnl/dnnl_sycl.hpp"
 #include "sycl_lz_engine.hpp"
+#include "sycl_lz_event.hpp"
 
 namespace cldnn {
 namespace sycl_lz {
@@ -70,8 +71,50 @@ event::ptr sycl_lz_stream::group_events(std::vector<event::ptr> const& deps) {
     DEBUG_PRINT("Not implemented.");
     return nullptr;
 }
+
 void sycl_lz_stream::wait_for_events(const std::vector<event::ptr>& events) {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::wait_for_events");
+    if (events.empty())
+        return;
+
+    for (auto& ev : events) {
+        if (!ev)
+            continue;
+        if (auto sycl_lz_base_ev = downcast<sycl_lz_base_event>(ev.get())) {
+            sycl_lz_base_ev->get().wait();
+        }
+    }
+    DEBUG_PRINT("sycl_lz_stream::wait_for_events finish. Temp solution");
+    // bool needs_barrier = false;
+    // std::vector<sycl_lz_event> clevents;
+    // for (auto& ev : events) {
+    //     if (!ev)
+    //         continue;
+
+    //     if (auto sycl_lz_base_ev = downcast<sycl_lz_base_event>(ev.get())) {
+    //         if (sycl_lz_base_ev->get().get() != nullptr) {
+    //             clevents.push_back(sycl_lz_base_ev->get().get());
+    //         } else {
+    //             needs_barrier = true;
+    //         }
+    //     }
+    // }
+
+    // sycl::event barrier_ev;
+    // if (needs_barrier) {
+    //     try {
+    //         _command_queue.enqueueBarrierWithWaitList(nullptr, &barrier_ev);
+    //         clevents.push_back(barrier_ev.get());
+    //     } catch (cl::Error const& err) {
+    //         OPENVINO_THROW(OCL_ERR_MSG_FMT(err));
+    //     }
+    // }
+
+    // if (!clevents.empty()) {
+    //     auto err = clWaitForEvents(static_cast<cl_uint>(clevents.size()), &clevents[0]);
+    //     if (err != CL_SUCCESS) {
+    //         OPENVINO_THROW("[GPU] clWaitForEvents failed with ", err, " code");
+    //     }
+    // }
 }
 void sycl_lz_stream::enqueue_barrier() {
     DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_barrier");
@@ -83,6 +126,10 @@ event::ptr sycl_lz_stream::create_user_event(bool set) {
 event::ptr sycl_lz_stream::create_base_event() {
     DEBUG_PRINT("Not implemented. sycl_lz_stream::create_base_event");
     return nullptr;
+}
+
+event::ptr sycl_lz_stream::create_base_event(sycl::event event) {
+    return std::make_shared<sycl_lz::sycl_lz_event>(event, ++_queue_counter);
 }
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
