@@ -9,7 +9,7 @@
 #include "sycl_lz_memory.hpp"
 #include "sycl_lz_engine.hpp"
 #include "sycl_lz_stream.hpp"
-// #include "sycl_lz_event.hpp"
+#include "sycl_lz_event.hpp"
 #include <stdexcept>
 #include <vector>
 
@@ -190,20 +190,20 @@ event::ptr gpu_usm::copy_from(stream& stream, const memory& src_mem, size_t src_
 }
 
 event::ptr gpu_usm::copy_to(stream& stream, void* data_ptr, size_t src_offset, size_t dst_offset, size_t size, bool blocking) const {
-    DEBUG_PRINT("Not implemented.");
-    return nullptr;
-    // auto result_event = create_event(stream, size, blocking);
-    // if (size == 0)
-    //     return result_event;
+    GPU_DEBUG_LOG << "copy_to from " << buffer_ptr() << " src_offset[" << src_offset << "] to " << data_ptr
+                  << " dst_offset[" << dst_offset << "], size= " << size << ", blocking = " << blocking << std::endl;
+    auto sycl_stream = downcast<sycl_lz_stream>(&stream);
+    if (size == 0)
+        return sycl_stream->create_base_event(sycl::event());
 
-    // auto cl_stream = downcast<ocl_stream>(&stream);
-    // auto cl_event = blocking ? nullptr : &downcast<ocl_event>(result_event.get())->get();
-    // auto src_ptr = reinterpret_cast<const char*>(buffer_ptr()) + src_offset;
-    // auto dst_ptr = reinterpret_cast<char*>(data_ptr) + dst_offset;
-
-    // TRY_CATCH_CL_ERROR(cl_stream->get_usm_helper().enqueue_memcpy(cl_stream->get_cl_queue(), dst_ptr, src_ptr, size, blocking, nullptr, cl_event));
-
-    // return result_event;
+    auto src_ptr = reinterpret_cast<const char*>(buffer_ptr()) + src_offset;
+    auto dst_ptr = reinterpret_cast<char*>(data_ptr) + dst_offset;
+    try {
+        sycl::event result_event = sycl_stream->get_sycl_queue().copy(src_ptr, dst_ptr, size);
+        return sycl_stream->create_base_event(result_event);
+    } catch (const sycl::exception& e) {
+        OPENVINO_THROW(std::string("Catch exaption: ") + std::string(e.what()));
+    }
 }
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
