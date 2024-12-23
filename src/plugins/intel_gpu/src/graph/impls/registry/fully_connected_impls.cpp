@@ -11,6 +11,10 @@
     #include "impls/onednn/fully_connected_onednn.hpp"
 #endif
 
+#if OV_GPU_WITH_SYCL_LZ
+#    include "impls/sycl_lz/fully_connected_sycl_lz.hpp"
+#endif
+
 namespace ov {
 namespace intel_gpu {
 
@@ -18,6 +22,7 @@ using namespace cldnn;
 
 const std::vector<std::shared_ptr<cldnn::ImplementationManager>>& Registry<fully_connected>::get_implementations() {
     static const std::vector<std::shared_ptr<ImplementationManager>> impls = {
+        OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::FullyConnectedImplementationManager, shape_types::static_shape)
         OV_GPU_CREATE_INSTANCE_ONEDNN(onednn::FullyConnectedImplementationManager, shape_types::static_shape)
         OV_GPU_GET_INSTANCE_OCL(fully_connected, shape_types::static_shape)
         OV_GPU_GET_INSTANCE_OCL(fully_connected, shape_types::dynamic_shape,
