@@ -15,6 +15,8 @@ public:
     PrintModelStatistics() = default;
 
     bool run_on_model(const std::shared_ptr<ov::Model>& m) override;
+
+    void print_model(const std::shared_ptr<ov::Model>& m);
 };
 
 }  // namespace intel_gpu

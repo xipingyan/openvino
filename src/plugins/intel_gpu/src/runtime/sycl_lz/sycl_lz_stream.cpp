@@ -83,7 +83,7 @@ void sycl_lz_stream::wait_for_events(const std::vector<event::ptr>& events) {
             sycl_lz_base_ev->get().wait();
         }
     }
-    DEBUG_PRINT("sycl_lz_stream::wait_for_events finish. Temp solution");
+    DEBUG_PRINT("sycl_lz_stream::wait_for_events finish. Temp solution, events.size=" << events.size());
     // bool needs_barrier = false;
     // std::vector<sycl_lz_event> clevents;
     // for (auto& ev : events) {
