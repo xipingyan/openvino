@@ -7,7 +7,6 @@
 #include "primitive_inst.h"
 #include "intel_gpu/runtime/memory.hpp"
 #include "impls/registry/registry.hpp"
-#include "runtime/ocl/ocl_event.hpp"
 
 #include <vector>
 
@@ -42,19 +41,6 @@ protected:
 
     void set_arguments_impl(typed_primitive_inst<PType>& instance) override { }
     void set_arguments_impl(typed_primitive_inst<PType>& instance, kernel_arguments_data& args) override { }
-
-    static event::ptr to_ocl_event(stream& stream, ::sycl::event e) {
-        if (stream.get_queue_type() == QueueTypes::out_of_order) {
-            auto native_events = ::sycl::get_native<::sycl::backend::opencl, ::sycl::event>(e);
-            std::vector<event::ptr> events;
-            for (auto& e : native_events) {
-                events.push_back(std::make_shared<ocl::ocl_event>(cl::Event(e, true)));
-            }
-            return stream.aggregate_events(events);
-        } else {
-            return nullptr;
-        }
-    }
 
     std::vector<layout> get_internal_buffer_layouts_impl() const override {
         return {};

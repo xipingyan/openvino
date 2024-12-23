@@ -3,41 +3,81 @@
 //
 
 #include "fully_connected_sycl_lz.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <memory>
+
 #include "fully_connected_inst.h"
+#include "impls/registry/implementation_manager.hpp"
 #include "intel_gpu/primitives/fully_connected.hpp"
 #include "intel_gpu/runtime/utils.hpp"
 #include "primitive_sycl_lz_base.h"
-#include "impls/registry/implementation_manager.hpp"
+#include "runtime/sycl_lz/sycl_lz_engine.hpp"
+#include "runtime/sycl_lz/sycl_lz_stream.hpp"
 
-#include <oneapi/dnnl/dnnl.hpp>
-
-#include <algorithm>
-#include <memory>
-#include <cmath>
 namespace cldnn {
 namespace sycl_lz {
+
+template<typename AType, typename WType, typename DType>
+::sycl::event run_fc_f32(::sycl::queue& queue,
+                         bool enqueue_barrier,
+                         const AType* a,
+                         const WType* w,
+                         DType* dst,
+                         size_t M,
+                         size_t N,
+                         size_t K,
+                         size_t group_size,
+                         size_t groups_num,
+                         const ov::Shape& out_shape) {
+    if (enqueue_barrier) {
+        queue.submit([=](::sycl::handler& cgh) {
+            cgh.ext_oneapi_barrier();
+        });
+    }
+
+    return queue.submit([=](::sycl::handler& cgh) {
+        cgh.parallel_for(::sycl::range<3>(out_shape[0], out_shape[1], out_shape[2]), [=](::sycl::id<3> index) {
+            const uint32_t b = index[0];
+            const uint32_t m = index[1];
+            const uint32_t n = index[2];
+        });
+    });
+}
+
+template<typename AType, typename WType, typename DType>
+::sycl::event run_fc_in_f16_out_f32(::sycl::queue& queue,
+                         bool enqueue_barrier,
+                         const AType* a,
+                         const WType* w,
+                         DType* dst,
+                         size_t M,
+                         size_t N,
+                         size_t K,
+                         size_t group_size,
+                         size_t groups_num,
+                         const ov::Shape& out_shape) {
+    if (enqueue_barrier) {
+        queue.submit([=](::sycl::handler& cgh) {
+            cgh.ext_oneapi_barrier();
+        });
+    }
+
+    return queue.submit([=](::sycl::handler& cgh) {
+        cgh.parallel_for(::sycl::range<3>(out_shape[0], out_shape[1], out_shape[2]), [=](::sycl::id<3> index) {
+            const uint32_t b = index[0];
+            const uint32_t m = index[1];
+            const uint32_t n = index[2];
+        });
+    });
+}
 
 struct fully_connected_sycl_lz : typed_primitive_sycl_lz_impl<fully_connected> {
     using parent = typed_primitive_sycl_lz_impl<fully_connected>;
     using parent::parent;
-    static constexpr int COMMON = 0;
-    static constexpr int PER_OC = 2;
-    static constexpr int GROUPED = 3;
 
     DECLARE_OBJECT_TYPE_SERIALIZATION(cldnn::sycl_lz::fully_connected_sycl_lz)
-
-private:
-    int _ds_group_size;
-    // dnnl::memory::data_type _ds_data_type;
-    // dnnl::memory::data_type _dzp_data_type;
-
-    static std::vector<int64_t> reshape_to_2d(const ov::PartialShape& shape, int64_t feature) {
-        auto staticShape = shape.to_shape();
-        size_t total =
-            std::accumulate(staticShape.begin(), staticShape.end(), static_cast<size_t>(1), std::multiplies<size_t>());
-        std::vector<int64_t> reshapeSize = { static_cast<int64_t>(total) / feature, feature };
-        return reshapeSize;
-    }
 
 protected:
     std::unique_ptr<primitive_impl> clone() const override {
@@ -93,45 +133,12 @@ protected:
         // return args;
     }
 
-    static std::shared_ptr<WeightsReorderParams> get_weights_reorder(const kernel_impl_params& impl_params,
-                                                                     const dnnl::primitive_desc& pd) {
-        GPU_DEBUG_LOG << "Not implemented. fully_connected_sycl_lz::get_weights_reorder" << std::endl;
-        return nullptr;
-        // auto input_layout = impl_params.get_input_layout(0);
-        // auto source_weights_layout = impl_params.get_input_layout(1);
-        // auto cldnn_prim = impl_params.typed_desc<fully_connected>();
+    static std::shared_ptr<WeightsReorderParams> get_weights_reorder(const kernel_impl_params& impl_params) {
+        auto source_weights_layout = impl_params.get_input_layout(1);
+        auto target_weights_layout = source_weights_layout;
+        target_weights_layout.format = format::oiyx;
 
-        // auto input_pshape = input_layout.get_partial_shape();
-        // auto weights_pshape = source_weights_layout.get_partial_shape();
-
-        // int64_t feature = input_pshape[std::min(cldnn_prim->input_size, static_cast<size_t>(4)) - 1].get_length();
-        // if (cldnn_prim->input_size == 3) {
-        //     feature = std::max({input_layout.spatial(0), input_layout.spatial(1), input_layout.spatial(2)});
-        // }
-        // auto target_weights_layout = source_weights_layout;
-        // if (weights_pshape.size() != 2) {
-        //     target_weights_layout.set_partial_shape(reshape_to_2d(weights_pshape, feature));
-        // }
-
-        // auto target_weights_desc = pd.weights_desc(0);
-
-        // auto shape_consistent = sycl_lz::keep_weights_reorder_shape_consistent(source_weights_layout, target_weights_desc);
-        // OPENVINO_ASSERT(shape_consistent, "[GPU] Input shape and output shape of weight reorder should be same.");
-
-        // auto source_weights_desc = sycl_lz::layout_to_memory_desc(source_weights_layout);
-
-        // const bool weights_format = true;
-        // const bool grouped = false;
-
-        // auto traits = convert_memory_desc_to_traits(target_weights_desc, weights_format, grouped);
-
-        // target_weights_layout.format = format(traits);
-
-        // return std::make_shared<WeightsReorderParamsOneDNN>(source_weights_layout,
-        //                                                     target_weights_layout,
-        //                                                     source_weights_desc,
-        //                                                     target_weights_desc,
-        //                                                     false);
+        return std::make_shared<WeightsReorderParams>(source_weights_layout, target_weights_layout);
     }
 
     // static void transform_layouts(layout& input_layout,
@@ -243,6 +250,69 @@ protected:
         GPU_DEBUG_LOG << "Not implemented[SYCL_RUNTIME]. GemmSyclLzImplementationManager::execute_impl" << std::endl;
         auto& network = instance.get_network();
         const auto& desc = instance.get_typed_desc<fully_connected>();
+
+        auto& stream = downcast<sycl_lz::sycl_lz_stream>(network.get_stream());
+        auto& engine = downcast<sycl_lz::sycl_lz_engine>(network.get_engine());
+        ::sycl::context sycl_context = engine.get_sycl_context();
+        ::sycl::queue& sycl_queue = stream.get_sycl_queue();
+
+        const auto& params = instance.get_impl_params();
+        auto out_shape = params->output_layouts[0].get_shape();
+
+        auto output = instance.output_memory_ptr(0);
+        auto weights = instance.weights_memory();
+        GPU_DEBUG_LOG << "Have bias: instance.bias_term()=" << instance.bias_term() << std::endl;
+        auto bias = instance.bias_term() ? instance.bias_memory() : nullptr;
+
+        std::vector<memory::ptr> inputs = {instance.input_memory_ptr(0)};
+        size_t in_id = instance.bias_term() ? 3 : 2;
+        if (!desc->decompression_scale.empty())
+            inputs.push_back(instance.dep_memory_ptr(in_id++));
+
+        if (!desc->decompression_zero_point.empty())
+            inputs.push_back(instance.dep_memory_ptr(in_id));
+
+        OPENVINO_ASSERT(!instance.bias_term() && !instance.get_node().has_fused_primitives());
+
+        ov::element::Type_t in_t = params->input_layouts[0].data_type;
+        ov::element::Type_t wei_t = params->weights_layout.value().data_type;
+        ov::element::Type_t out_t = params->output_layouts[0].data_type;
+        ov::element::Type_t ds_t = params->input_layouts[2].data_type;
+        ov::element::Type_t dzp_t =
+            inputs.size() == 3 ? params->input_layouts[3].data_type : ov::element::Type_t::undefined;
+
+        OPENVINO_ASSERT(out_shape.size() == 3);
+        size_t M = out_shape[1];
+        size_t N = out_shape[2];
+        size_t K = params->weights_layout.value().get_partial_shape()[1].get_length();
+        size_t groups_num = params->input_layouts[2].get_shape()[1];
+        size_t group_size = K / groups_num;
+
+        OPENVINO_ASSERT(inputs.size() >= 2);
+
+        auto dzp_scalar = desc->decompression_zero_point_scalar;
+
+        bool barrier = stream.get_queue_type() == QueueTypes::out_of_order;
+
+#define CASE(InputType, WeightsType, DstType) \
+    in_t == ov::element::InputType&& wei_t == ov::element::WeightsType&& out_t == ov::element::DstType
+
+        if (CASE(f32, f32, f32)) {
+            const float* in = static_cast<const float*>(inputs[0]->buffer_ptr());
+            const float* wei = static_cast<const float*>(weights->buffer_ptr());
+            float* out = static_cast<float*>(output->buffer_ptr());
+            return stream.create_base_event(
+                run_fc_f32(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
+        } else if ((CASE(f16, f16, f32))) {
+            const ::sycl::half* in = static_cast<const ::sycl::half*>(inputs[0]->buffer_ptr());
+            const ::sycl::half* wei = static_cast<const ::sycl::half*>(weights->buffer_ptr());
+            float* out = static_cast<float*>(output->buffer_ptr());
+
+            return stream.create_base_event(
+                run_fc_in_f16_out_f32(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
+        } else {
+            OPENVINO_THROW("No instance for given types found: ", in_t, " ", wei_t, " ", out_t);
+        }
     }
 
 public:
@@ -254,80 +324,12 @@ public:
         GPU_DEBUG_LOG << "Not implemented. fully_connected_sycl_lz::load" << std::endl;
     }
 
-    static std::unique_ptr<primitive_impl> create(const fully_connected_node& arg, const kernel_impl_params& impl_params) {
-        GPU_DEBUG_LOG << "Not implemented. fully_connected_sycl_lz::create" << std::endl;
-        // auto& engine = impl_params.prog->get_engine();
-        // auto& config = impl_params.prog->get_config();
-        // auto attr = impl_params.attrs_sycl_lz;
-        // auto prim = impl_params.typed_desc<fully_connected>();
-        // int group_size = 0;
-        // dnnl::memory::data_type ds_data_type = dnnl::memory::data_type::undef;
-        // dnnl::memory::data_type dzp_data_type = dnnl::memory::data_type::undef;
-        // bool is_four_bit_weight = false;
-        // int idx = !arg.bias_term() ? 1 : 2;
-
-        // // There may be a performance difference between InnerProduct and MatMul primitives in oneDNN,
-        // // so use MatMul only for weights compression and IP for all other cases.
-        // if (prim->compressed_weights) {
-        //     attr->set_fpmath_mode(dnnl::fpmath_mode::f16, true);
-        //     auto weights_layout = impl_params.get_input_layout(1);
-        //     is_four_bit_weight = weights_layout.data_type == data_types::u4 || weights_layout.data_type == data_types::i4;
-        //     if (!prim->decompression_scale.empty()) {
-        //         auto decompression_scale_idx = ++idx;
-        //         ds_data_type = convert_data_type(arg.get_dependency(decompression_scale_idx).get_output_layout().data_type);
-        //         auto ifm = arg.get_dependency(1).get_output_layout().get_dim(1);
-        //         auto ngroups = arg.get_dependency(decompression_scale_idx).get_output_layout().get_dim(1);
-        //         group_size = ifm / ngroups;
-        //         if (!is_four_bit_weight) {
-        //             // 8-bit quantized weight
-        //             attr->set_scales(DNNL_ARG_WEIGHTS, PER_OC, dnnl::memory::dims{}, ds_data_type);
-        //         } else {
-        //             // OneDNN does not support scalar zero-point for s4 and u8 type. Need to broadcast it.
-        //             attr->set_scales(DNNL_ARG_WEIGHTS, GROUPED, {group_size, 1}, ds_data_type);
-        //         }
-        //     }
-
-        //     if (!prim->decompression_zero_point.empty()) {
-        //         auto decompression_zp_idx = ++idx;
-        //         auto dzp_layout = arg.get_dependency(decompression_zp_idx).get_output_layout();
-        //         dzp_data_type = convert_data_type(dzp_layout.data_type);
-
-        //         if (dzp_layout.count() == 1) {
-        //             attr->set_zero_points(DNNL_ARG_WEIGHTS, COMMON, dnnl::memory::dims{}, dzp_data_type);
-        //         } else {
-        //             auto ngroups = dzp_layout.get_dim(1);
-        //             if (ngroups == 1) {
-        //                 attr->set_zero_points(DNNL_ARG_WEIGHTS, PER_OC, dnnl::memory::dims{}, dzp_data_type);
-        //             } else {
-        //                 attr->set_zero_points(DNNL_ARG_WEIGHTS, GROUPED, {group_size, 1}, dzp_data_type);
-        //             }
-        //         }
-        //     }
-
-        //     if (prim->dynamic_quantized_activation) {
-        //         // Note: it supports per-token activation scale only
-        //         ++idx;
-        //         auto partial_shape = impl_params.input_layouts[0].get_partial_shape();
-        //         auto innermost_len = partial_shape[partial_shape.size() - 1].get_length();
-
-        //         auto act_scale_data_type = convert_data_type(impl_params.input_layouts[idx].data_type);
-        //         attr->set_scales(DNNL_ARG_SRC, GROUPED, dnnl::memory::dims{1, innermost_len}, act_scale_data_type);
-        //     }
-
-        //     auto prim_desc = get_matmul_primitive_descriptor(impl_params, impl_params.prog->get_engine(),
-        //                                                      prim->input_size, !prim->bias.empty(), *attr);
-
-        //     auto prim_sycl_lz = cldnn::make_unique<fully_connected_sycl_lz>(engine, config, attr, *prim_desc);
-        //     prim_sycl_lz->_ds_group_size = group_size;
-        //     prim_sycl_lz->_ds_data_type = ds_data_type;
-        //     prim_sycl_lz->_dzp_data_type = dzp_data_type;
-        //     return prim_sycl_lz;
-        // } else {
-        //     auto prim_desc = get_inner_product_primitive_descriptor(impl_params, impl_params.prog->get_engine(),
-        //                                                             prim->input_size, !prim->bias.empty(), *attr);
-
-        //     return cldnn::make_unique<fully_connected_sycl_lz>(engine, config, attr, *prim_desc, get_weights_reorder(impl_params, *prim_desc));
-        // }
+    static std::unique_ptr<primitive_impl> create(const fully_connected_node& arg,
+                                                  const kernel_impl_params& impl_params) {
+        GPU_DEBUG_LOG << "fully_connected_sycl_lz::create" << std::endl;
+        auto& engine = impl_params.prog->get_engine();
+        auto& config = impl_params.prog->get_config();
+        return cldnn::make_unique<fully_connected_sycl_lz>(engine, config, get_weights_reorder(impl_params));
     }
 };
 
