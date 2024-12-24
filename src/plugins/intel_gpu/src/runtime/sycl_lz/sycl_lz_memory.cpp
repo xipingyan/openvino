@@ -31,9 +31,6 @@ gpu_usm::gpu_usm(sycl_lz_engine* engine, const layout& layout, allocation_type t
     : lockable_gpu_mem(),
       memory(engine, layout, type, nullptr),
       _buffer(engine->get_usm_helper()) {
-    DEBUG_PRINT_VAR(layout);
-    GPU_DEBUG_LOG << "gpu_usm, type=" << type << ", layout.get_shape()" << layout.get_shape() << std::endl;
-
     // , _host_buffer(engine->get_usm_helper()) {
 
     switch (get_allocation_type()) {
@@ -52,6 +49,8 @@ gpu_usm::gpu_usm(sycl_lz_engine* engine, const layout& layout, allocation_type t
     }
 
     m_mem_tracker = std::make_shared<MemoryTracker>(engine, _buffer.get(), layout.bytes_count(), type);
+    GPU_DEBUG_LOG << "gpu_usm, type=" << type << ", layout.get_shape()" << layout.get_shape()
+                  << ", ptr=" << _buffer.get() << std::endl;
 }
 
 gpu_usm::gpu_usm(sycl_lz_engine* engine,

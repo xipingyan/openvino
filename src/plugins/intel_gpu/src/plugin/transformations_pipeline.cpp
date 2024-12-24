@@ -275,6 +275,13 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
     OV_ITT_SCOPED_TASK(itt::domains::intel_gpu_plugin, "TransformationsPipeline::apply");
     using const_node_ptr = const std::shared_ptr<const ov::Node>;
 
+    // Print src model
+    GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
+        ov::pass::Manager manager("Plugin:GPU:PrintSrcModel");
+        manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
+        manager.run_passes(func);
+    }
+
     const auto& defaultPrecisions = ov::pass::low_precision::precision_set::get_int8_support();
     const ov::element::TypeVector supported_woq_types = {ov::element::u8, ov::element::i8, ov::element::u4, ov::element::i4};
     bool enableInt8;
@@ -998,6 +1005,12 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
         GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
             manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
         }
+        manager.run_passes(func);
+    }
+
+    GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
+        ov::pass::Manager manager("Plugin:GPU:PrintGPUModel");
+        manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
         manager.run_passes(func);
     }
 }

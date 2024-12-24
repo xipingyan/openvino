@@ -69,6 +69,12 @@
 #    define OV_GPU_CREATE_INSTANCE_SYCL(...)
 #endif
 
+#if OV_GPU_WITH_SYCL_LZ
+#    define OV_GPU_CREATE_INSTANCE_SYCL_LZ(...) EXPAND(CREATE_INSTANCE(__VA_ARGS__))
+#else
+#    define OV_GPU_CREATE_INSTANCE_SYCL_LZ(...)
+#endif
+
 #if OV_GPU_WITH_OCL
 #    define OV_GPU_CREATE_INSTANCE_OCL(...) EXPAND(CREATE_INSTANCE(__VA_ARGS__))
 #    define OV_GPU_GET_INSTANCE_OCL(prim, ...) EXPAND(SELECT(COUNT(__VA_ARGS__), prim, impl_types::ocl, __VA_ARGS__))

@@ -34,7 +34,45 @@ size_t collect_stats(const std::shared_ptr<ov::Model>& m, std::map<DiscreteTypeI
 
 }  // namespace
 
+void PrintModelStatistics::print_model(const std::shared_ptr<ov::Model>& m) {
+    std::stringstream ss;
+    ss << "=======================================================\n"
+       << "== Print model, name = " << m->get_friendly_name() << std::endl;
+
+    const std::vector<std::shared_ptr<ov::Node>> ops = m->get_ops();
+    for (auto& op : ops) {
+        ss << "  " << op->get_friendly_name() << "=" << op->get_type_name() << "(";
+        for (size_t i = 0; i < op->get_input_size(); i++) {
+            ss << op->get_input_node_shared_ptr(i)->get_friendly_name()
+               << (i == op->get_input_size() - 1 ? ")\n" : ", ");
+        }
+        if (op->get_input_size() == 0) {
+            ss << ")\n";
+        }
+
+        if (auto subgraph_op = std::dynamic_pointer_cast<ov::op::util::MultiSubGraphOp>(op)) {
+            for (const auto& subgraph : subgraph_op->get_functions()) {
+                const std::vector<std::shared_ptr<ov::Node>> sub_ops = subgraph->get_ops();
+                for (auto& sub_op : sub_ops) {
+                    ss << "    == name:" << sub_op->get_friendly_name() << "=" << sub_op->get_type_name() << "(";
+                    for (size_t s = 0; s < sub_op->get_input_size(); s++) {
+                        ss << sub_op->get_input_node_shared_ptr(s)->get_friendly_name()
+                           << (s == sub_op->get_input_size() - 1 ? ")\n" : ", ");
+                    }
+                    if (sub_op->get_input_size() == 0) {
+                        ss << ")\n";
+                    }
+                }
+            }
+        }
+    }
+    GPU_DEBUG_INFO << ss.str() << std::endl;
+}
+
 bool PrintModelStatistics::run_on_model(const std::shared_ptr<ov::Model>& m) {
+    print_model(m);
+    return false;
+
     std::map<DiscreteTypeInfo, size_t> ops_stat;
     size_t total = collect_stats(m, ops_stat);
 
@@ -47,6 +85,7 @@ bool PrintModelStatistics::run_on_model(const std::shared_ptr<ov::Model>& m) {
     ss << "\tTotal: " << total;
 
     GPU_DEBUG_INFO << ss.str() << std::endl;;
+
     return false;
 }
 

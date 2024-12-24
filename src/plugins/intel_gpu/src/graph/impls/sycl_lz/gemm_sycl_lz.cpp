@@ -147,7 +147,7 @@ struct gemm_sycl_lz : typed_primitive_sycl_lz_impl<gemm> {
 
 std::unique_ptr<primitive_impl> GemmSyclLzImplementationManager::create_impl(const program_node& node,
                                                                              const kernel_impl_params& params) const {
-    GPU_DEBUG_LOG << "GemmSyclLzImplementationManager::create_impl" << std::endl;
+    GPU_DEBUG_LOG << "== GemmSyclLzImplementationManager::create_impl" << std::endl;
     assert(node.is_type<gemm>());
     return sycl_lz::gemm_sycl_lz::create(static_cast<const gemm_node&>(node), params);
 }
