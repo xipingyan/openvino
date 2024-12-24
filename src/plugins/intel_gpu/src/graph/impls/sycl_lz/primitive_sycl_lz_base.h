@@ -43,6 +43,7 @@ protected:
     void set_arguments_impl(typed_primitive_inst<PType>& instance, kernel_arguments_data& args) override { }
 
     std::vector<layout> get_internal_buffer_layouts_impl() const override {
+        GPU_DEBUG_LOG << "== Not Implemented. get_internal_buffer_layouts_impl." << std::endl;
         return {};
     }
 };

@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include <cmath>
-#include <memory>
-
 #include "fully_connected_inst.h"
 #include "impls/registry/implementation_manager.hpp"
 #include "intel_gpu/primitives/fully_connected.hpp"
