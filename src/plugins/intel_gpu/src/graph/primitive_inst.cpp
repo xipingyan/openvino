@@ -2746,6 +2746,7 @@ std::shared_ptr<primitive_impl> ImplementationsFactory::get_primitive_impl_for_p
             if (!impl_manager->support_shapes(params))
                 continue;
 
+            GPU_DEBUG_LOG << "get_primitive_impl_for_params, node:" << node->id() << std::endl;
             return impl_manager->create(*node, params);
         }
 

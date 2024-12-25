@@ -19,6 +19,15 @@
 namespace cldnn {
 namespace sycl_lz {
 
+template <typename A, typename B>
+struct AccumulatorType {
+    using type = float;
+};
+
+template<> struct AccumulatorType<::sycl::half, ::sycl::half> {
+    using type = ::sycl::half;
+};
+
 template <typename AType, typename WType, typename DType>
 ::sycl::event run_fc_f32(::sycl::queue& queue,
                          bool enqueue_barrier,
@@ -67,10 +76,34 @@ template <typename AType, typename WType, typename DType>
     }
 
     return queue.submit([=](::sycl::handler& cgh) {
+        // Print inside SYCL Kernel.
+        // sycl::stream out(1000*392, 1024, cgh);
+        sycl::stream out(384 * 20, 1024, cgh);
         cgh.parallel_for(::sycl::range<3>(out_shape[0], out_shape[1], out_shape[2]), [=](::sycl::id<3> index) {
             const uint32_t b = index[0];
             const uint32_t m = index[1];
             const uint32_t n = index[2];
+            using accum_t = typename AccumulatorType<AType, WType>::type;
+            accum_t accumulator = 0.0f;
+
+            for (uint32_t y = 0; y < K; ++y) {
+                const uint32_t input0_offset = y + m * K + b * M * K;
+                // const uint32_t zp_offset = (y / group_size % groups_num) * N + n % N;
+                // const uint32_t decomp_offset = (y / group_size % groups_num) * N + n % N;
+                const uint32_t filter_offset = y + n * K;
+
+                // accum_t zp_val = has_value ? static_cast<accum_t>(dzp_value) : static_cast<accum_t>(zp[zp_offset]);
+                // accum_t scale = s[decomp_offset];
+                accum_t filter_compressed = static_cast<accum_t>(w[filter_offset]);
+                // accum_t filter_val = (filter_compressed) * scale;
+                accumulator += a[input0_offset] * filter_compressed;
+                out << "  == accumulator=" << accumulator << ", a[input0_offset]=" << a[input0_offset]
+                    << ", filter_compressed=" << filter_compressed << ", K=" << K << ", a[0]=" << a[0] << sycl::endl;
+            }
+            const uint32_t dst_index = n + m * N + b * N * M;
+            // accumulator = 20;
+            dst[dst_index] = accumulator;
+            out << "== dst id:" << dst_index << ", accumulator=" << accumulator << sycl::endl;
         });
     });
 }
