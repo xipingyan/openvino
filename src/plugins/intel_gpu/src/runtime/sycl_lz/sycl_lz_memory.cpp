@@ -30,9 +30,8 @@ namespace sycl_lz {
 gpu_usm::gpu_usm(sycl_lz_engine* engine, const layout& layout, allocation_type type)
     : lockable_gpu_mem(),
       memory(engine, layout, type, nullptr),
-      _buffer(engine->get_usm_helper()) {
-    // , _host_buffer(engine->get_usm_helper()) {
-
+      _buffer(engine->get_usm_helper()),
+      _host_buffer(engine->get_usm_helper()) {
     switch (get_allocation_type()) {
     case allocation_type::usm_host:
         _buffer.allocateHost(_bytes_count);
@@ -60,7 +59,8 @@ gpu_usm::gpu_usm(sycl_lz_engine* engine,
                  std::shared_ptr<MemoryTracker> mem_tracker)
     : lockable_gpu_mem(),
       memory(engine, new_layout, type, mem_tracker),
-      _buffer(buffer) {}
+      _buffer(buffer),
+      _host_buffer(engine->get_usm_helper()) {}
 
 gpu_usm::gpu_usm(sycl_lz_engine* engine,
                  const layout& new_layout,
@@ -68,26 +68,32 @@ gpu_usm::gpu_usm(sycl_lz_engine* engine,
                  std::shared_ptr<MemoryTracker> mem_tracker)
     : lockable_gpu_mem(),
       memory(engine, new_layout, detect_allocation_type(engine, buffer), mem_tracker),
-      _buffer(buffer) {}
+      _buffer(buffer),
+      _host_buffer(engine->get_usm_helper()) {}
 
 void* gpu_usm::lock(const stream& stream, mem_lock_type type) {
     std::lock_guard<std::mutex> locker(_mutex);
     if (0 == _lock_count) {
-        // auto& sycllz_stream = downcast<const sycl_lz_stream>(stream);
         if (get_allocation_type() == allocation_type::usm_device) {
             if (type != mem_lock_type::read) {
                 throw std::runtime_error("Unable to lock allocation_type::usm_device with write lock_type.");
             }
             GPU_DEBUG_LOG << "Copy usm_device buffer to host buffer." << std::endl;
 
-            DEBUG_PRINT("Not implemented. _host_buffer.allocateHost(_bytes_count);");
-            // _host_buffer.allocateHost(_bytes_count);
-            // try {
-            //     sycl_lz_stream.get_usm_helper().enqueue_memcpy(sycllz_stream.get_cl_queue(), _host_buffer.get(), _buffer.get(), _bytes_count, CL_TRUE);
-            // } catch (cl::Error const& err) {
-            //     OPENVINO_THROW(OCL_ERR_MSG_FMT(err));
-            // }
-            // _mapped_ptr = _host_buffer.get();
+            // DEBUG_PRINT("Not implemented. _host_buffer.allocateHost(_bytes_count);");
+            _host_buffer.allocateHost(_bytes_count);
+            try {
+                const sycl_lz_stream& sycllz_stream = downcast<const sycl_lz_stream>(stream);
+                // sycl_lz_stream sss = sycllz_stream;
+                // sycllz_stream.get_usm_helper().enqueue_memcpy(sycllz_stream.get_sycl_queue_ptr(),
+                //                                               _host_buffer.get(),
+                //                                               _buffer.get(),
+                //                                               _bytes_count,
+                //                                               1);
+            } catch (sycl::exception const& err) {
+                OPENVINO_THROW("[GPU] enqueue_memcpy failed: ", err.what());
+            }
+            _mapped_ptr = _host_buffer.get();
         } else {
             _mapped_ptr = _buffer.get();
         }

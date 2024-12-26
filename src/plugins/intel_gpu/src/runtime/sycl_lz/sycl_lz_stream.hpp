@@ -46,7 +46,7 @@ public:
     event::ptr create_base_event() override;
     event::ptr create_base_event(sycl::event event);
 
-    // const cl::UsmHelper& get_usm_helper() const { return _engine.get_usm_helper(); }
+    const ::sycl_lz::UsmHelper& get_usm_helper() const { return _engine.get_usm_helper(); }
 
     static QueueTypes detect_queue_type(void* queue_handle);
 

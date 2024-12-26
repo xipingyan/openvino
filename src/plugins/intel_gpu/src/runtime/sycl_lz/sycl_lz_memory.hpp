@@ -89,10 +89,8 @@ struct gpu_usm : public lockable_gpu_mem, public memory {
     static allocation_type detect_allocation_type(const sycl_lz_engine* engine, const void* mem_ptr);
 
 protected:
-    // void* _buffer;
-    // void* _host_buffer;
     ::sycl_lz::UsmMemory _buffer;
-    // ::sycl_lz::UsmMemory _host_buffer;
+    ::sycl_lz::UsmMemory _host_buffer;
 
     static allocation_type detect_allocation_type(const sycl_lz_engine* engine, const ::sycl_lz::UsmMemory& buffer);
 };

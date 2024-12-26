@@ -54,7 +54,20 @@ public:
                           bool blocking = true,
                           const std::vector<sycl::event>* wait_list = nullptr,
                           sycl::event* ret_event = nullptr) const {
-        DEBUG_PRINT("Not implemented.");
+        DEBUG_PRINT("Temp Solution, Copy device buffer to host. ");
+
+        // cpp_queue.copy<void*>(src_ptr, dst_ptr, bytes_count);
+        // auto ev = cpp_queue.submit([&](sycl::handler& cgh) {
+        //     cgh.memcpy(dst_ptr, src_ptr, bytes_count);
+        // });
+
+        // if (ret_event) {
+        //     // return sycl_stream->create_base_event(result_event);
+        //     *ret_event = ev;
+        // } else {
+        //     ev.wait();
+        // }
+
         return 0;
     }
 
@@ -66,6 +79,7 @@ public:
                             const std::vector<sycl::event>* wait_list = nullptr,
                             sycl::event* ret_event = nullptr) const {
         DEBUG_PRINT("Not implemented.");
+
         return 0;
     }
 
@@ -76,6 +90,7 @@ public:
                            const std::vector<sycl::event>* wait_list = nullptr,
                            sycl::event* ret_event = nullptr) const {
         DEBUG_PRINT("Not implemented.");
+
         return 0;
     }
 
