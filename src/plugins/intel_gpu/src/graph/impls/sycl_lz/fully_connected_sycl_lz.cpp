@@ -19,6 +19,15 @@
 namespace cldnn {
 namespace sycl_lz {
 
+template <typename A, typename B>
+struct AccumulatorType {
+    using type = float;
+};
+
+template<> struct AccumulatorType<::sycl::half, ::sycl::half> {
+    using type = ::sycl::half;
+};
+
 template <typename AType, typename WType, typename DType>
 ::sycl::event run_fc_f32(::sycl::queue& queue,
                          bool enqueue_barrier,
@@ -43,8 +52,44 @@ template <typename AType, typename WType, typename DType>
             const uint32_t b = index[0];
             const uint32_t m = index[1];
             const uint32_t n = index[2];
+
+            using accum_t = typename AccumulatorType<AType, WType>::type;
+            accum_t accumulator = 0.0f;
+
+            for (uint32_t y = 0; y < K; ++y) {
+                const uint32_t input0_offset = y + m * K + b * M * K;
+                // const uint32_t zp_offset = (y / group_size % groups_num) * N + n % N;
+                // const uint32_t decomp_offset = (y / group_size % groups_num) * N + n % N;
+                const uint32_t filter_offset = y + n * K;
+
+                // accum_t zp_val = has_value ? static_cast<accum_t>(dzp_value) : static_cast<accum_t>(zp[zp_offset]);
+                // accum_t scale = s[decomp_offset];
+                accum_t filter_compressed = static_cast<accum_t>(w[filter_offset]);
+                // accum_t filter_val = (filter_compressed) * scale;
+                accumulator += a[input0_offset] * filter_compressed;
+                // out << "  == accumulator=" << accumulator << ", a[input0_offset]=" << a[input0_offset]
+                //     << ", filter_compressed=" << filter_compressed << ", K=" << K << ", a[0]=" << a[0] << sycl::endl;
+            }
+            const uint32_t dst_index = n + m * N + b * N * M;
+            // accumulator = 20;
+            dst[dst_index] = accumulator;
+            // out << "== dst id:" << dst_index << ", accumulator=" << accumulator << sycl::endl;
         });
     });
+}
+
+inline std::string usm_alloc_2_str(sycl::usm::alloc mem_type) {
+    switch (mem_type) {
+    case sycl::usm::alloc::device:
+        return "sycl::usm::alloc::device";
+    case sycl::usm::alloc::host:
+        return "sycl::usm::alloc::host";
+    case sycl::usm::alloc::shared:
+        return "sycl::usm::alloc::shared";
+    case sycl::usm::alloc::unknown:
+        return "sycl::usm::alloc::unknown";
+    }
+    return std::string();
 }
 
 template <typename AType, typename WType, typename DType>
@@ -66,11 +111,38 @@ template <typename AType, typename WType, typename DType>
         });
     }
 
+    GPU_DEBUG_LOG << " == a ptr type:" << usm_alloc_2_str(sycl::get_pointer_type(a, queue.get_context())) << std::endl;
+    GPU_DEBUG_LOG << " == w ptr type:" << usm_alloc_2_str(sycl::get_pointer_type(w, queue.get_context())) << std::endl;
+
     return queue.submit([=](::sycl::handler& cgh) {
+        // Print inside SYCL Kernel.
+        // sycl::stream out(1000*392, 1024, cgh);
+        sycl::stream out(384 * 20, 1024, cgh);
         cgh.parallel_for(::sycl::range<3>(out_shape[0], out_shape[1], out_shape[2]), [=](::sycl::id<3> index) {
             const uint32_t b = index[0];
             const uint32_t m = index[1];
             const uint32_t n = index[2];
+            using accum_t = typename AccumulatorType<AType, WType>::type;
+            accum_t accumulator = 0.0f;
+
+            for (uint32_t y = 0; y < K; ++y) {
+                const uint32_t input0_offset = y + m * K + b * M * K;
+                // const uint32_t zp_offset = (y / group_size % groups_num) * N + n % N;
+                // const uint32_t decomp_offset = (y / group_size % groups_num) * N + n % N;
+                const uint32_t filter_offset = y + n * K;
+
+                // accum_t zp_val = has_value ? static_cast<accum_t>(dzp_value) : static_cast<accum_t>(zp[zp_offset]);
+                // accum_t scale = s[decomp_offset];
+                accum_t filter_compressed = static_cast<accum_t>(w[filter_offset]);
+                // accum_t filter_val = (filter_compressed) * scale;
+                accumulator += a[input0_offset] * filter_compressed;
+                out << "  == accumulator=" << accumulator << ", a[input0_offset]=" << a[input0_offset]
+                    << ", filter_compressed=" << filter_compressed << ", K=" << K << ", a[0]=" << a[0] << sycl::endl;
+            }
+            const uint32_t dst_index = n + m * N + b * N * M;
+            // accumulator = 20;
+            dst[dst_index] = accumulator;
+            out << "== dst id:" << dst_index << ", accumulator=" << accumulator << sycl::endl;
         });
     });
 }
@@ -87,6 +159,7 @@ protected:
     }
 
     std::unordered_map<int, dnnl::memory> get_arguments(fully_connected_inst& instance) const {
+        GPU_DEBUG_LOG << "Not Implemented. get_arguments" << std::endl;
         return std::unordered_map<int, dnnl::memory>();
         // std::unordered_map<int, dnnl::memory> args = parent::get_arguments(instance);
 
@@ -144,6 +217,8 @@ protected:
         auto source_weights_layout = impl_params.get_input_layout(1);
         auto target_weights_layout = source_weights_layout;
         target_weights_layout.format = format::oiyx;
+
+        GPU_DEBUG_LOG << "Not Implemented. get_weights_reorder" << std::endl;
 
         return std::make_shared<WeightsReorderParams>(source_weights_layout, target_weights_layout);
     }
@@ -286,11 +361,11 @@ protected:
         ov::element::Type_t in_t = params->input_layouts[0].data_type;
         ov::element::Type_t wei_t = params->weights_layout.value().data_type;
         ov::element::Type_t out_t = params->output_layouts[0].data_type;
-        if (bias) {
-            ov::element::Type_t ds_t = params->input_layouts[2].data_type;
-            ov::element::Type_t dzp_t =
-                inputs.size() == 3 ? params->input_layouts[3].data_type : ov::element::Type_t::undefined;
-        }
+        // if (bias) {
+        //     ov::element::Type_t ds_t = params->input_layouts[2].data_type;
+        //     ov::element::Type_t dzp_t =
+        //         inputs.size() == 3 ? params->input_layouts[3].data_type : ov::element::Type_t::undefined;
+        // }
 
         OPENVINO_ASSERT(out_shape.size() == 3);
         size_t M = out_shape[1];

@@ -46,7 +46,7 @@ public:
     event::ptr create_base_event() override;
     event::ptr create_base_event(sycl::event event);
 
-    // const cl::UsmHelper& get_usm_helper() const { return _engine.get_usm_helper(); }
+    const ::sycl_lz::UsmHelper& get_usm_helper() const { return _engine.get_usm_helper(); }
 
     static QueueTypes detect_queue_type(void* queue_handle);
 
@@ -54,7 +54,7 @@ public:
     dnnl::stream& get_onednn_stream() override;
 #endif
 
-    ::sycl::queue& get_sycl_queue();
+    ::sycl::queue& get_sycl_queue() const;
 
 private:
     void sync_events(std::vector<event::ptr> const& deps, bool is_output = false);

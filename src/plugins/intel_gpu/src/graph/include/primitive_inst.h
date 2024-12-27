@@ -508,6 +508,7 @@ private:
             throw std::invalid_argument(
                 "Trying to execute primitive implementation with mismatching primitive instance");
 
+        GPU_DEBUG_LOG << "== typed_primitive_impl::execute, node:" << instance.id() << std::endl;
         return execute_impl(event, reinterpret_cast<typed_primitive_inst<PType>&>(instance));
     }
 

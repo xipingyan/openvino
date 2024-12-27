@@ -22,6 +22,7 @@
 #include "intel_gpu/graph/program.hpp"
 #include "intel_gpu/graph/network.hpp"
 #include "intel_gpu/graph/serialization/map_serializer.hpp"
+#include "intel_gpu/graph/my_profiler.hpp"
 
 #include "primitive_inst.h"
 #include "input_layout_inst.h"
@@ -744,19 +745,24 @@ void network::execute_impl(const std::vector<event::ptr>& events) {
 
     for (auto& inst : _exec_order) {
         NODE_DEBUG(*inst);
+        {
+            GPU_DEBUG_LOG << "== Run inst: " << inst->id() << " =================== " << std::endl;
+            auto my_profiler = MY_PROFILE(inst->id());
 
-        inst->reset_events();
+            inst->reset_events();
 
-        if (inst->is_input()) {
-            inst->add_dep_events(events);
+            if (inst->is_input()) {
+                inst->add_dep_events(events);
+            }
+
+            inst->prepare_primitive();
+            inst->execute();
+
+            executed_prims++;
+            if (needs_flushing && executed_prims % flush_frequency == 0)
+                get_stream().flush();
         }
-
-        inst->prepare_primitive();
-        inst->execute();
-
-        executed_prims++;
-        if (needs_flushing && executed_prims % flush_frequency == 0)
-            get_stream().flush();
+        // Dump I/O parameters.
     }
 
     // Using output of previous network as input to another one may cause hazard (in OOOQ mode) if user would not
