@@ -54,7 +54,7 @@ public:
     dnnl::stream& get_onednn_stream() override;
 #endif
 
-    ::sycl::queue& get_sycl_queue();
+    ::sycl::queue& get_sycl_queue() const;
 
 private:
     void sync_events(std::vector<event::ptr> const& deps, bool is_output = false);

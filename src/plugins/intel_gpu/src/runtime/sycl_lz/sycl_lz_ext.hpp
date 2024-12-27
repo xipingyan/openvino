@@ -12,6 +12,7 @@
 #include <sycl/sycl.hpp>
 
 #include "sycl_lz_my_log.hpp"
+#include "intel_gpu/runtime/debug_configuration.hpp"
 
 namespace sycl_lz {
 
@@ -57,17 +58,21 @@ public:
         DEBUG_PRINT("Temp Solution, Copy device buffer to host. ");
 
         // cpp_queue.copy<void*>(src_ptr, dst_ptr, bytes_count);
-        // auto ev = cpp_queue.submit([&](sycl::handler& cgh) {
-        //     cgh.memcpy(dst_ptr, src_ptr, bytes_count);
-        // });
+        auto new_queue = cpp_queue;
+        auto ev = new_queue.submit([&](sycl::handler& cgh) {
+            cgh.memcpy(dst_ptr, src_ptr, bytes_count);
+        });
 
-        // if (ret_event) {
-        //     // return sycl_stream->create_base_event(result_event);
-        //     *ret_event = ev;
-        // } else {
-        //     ev.wait();
-        // }
-
+        if (ret_event) {
+            // return sycl_stream->create_base_event(result_event);
+            *ret_event = ev;
+        } else {
+            ev.wait();
+            sycl::half* dst_ptr_f16 = static_cast<sycl::half*>(dst_ptr);
+            GPU_DEBUG_LOG << "== dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
+                          << static_cast<float>(dst_ptr_f16[1]) << ", " << static_cast<float>(dst_ptr_f16[2]) << ", "
+                          << static_cast<float>(dst_ptr_f16[3]) << std::endl;
+        }
         return 0;
     }
 

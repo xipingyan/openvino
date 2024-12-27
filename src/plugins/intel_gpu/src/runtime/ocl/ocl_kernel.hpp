@@ -18,20 +18,28 @@ namespace ocl {
 class ocl_kernel : public kernel {
     ocl_kernel_type _compiled_kernel;
     std::string _kernel_id;
+    std::vector<std::string> _kernel_source;
 
 public:
-    ocl_kernel(ocl_kernel_type compiled_kernel, const std::string& kernel_id)
-        : _compiled_kernel(compiled_kernel)
-        , _kernel_id(kernel_id) { }
+    ocl_kernel(ocl_kernel_type compiled_kernel,
+               const std::string& kernel_id,
+               const std::vector<std::string>& kernel_source)
+        : _compiled_kernel(compiled_kernel),
+          _kernel_id(kernel_id),
+          _kernel_source(kernel_source) {}
 
     std::string get_id() const override { return _kernel_id; }
     const ocl_kernel_type& get_handle() const { return _compiled_kernel; }
     ocl_kernel_type& get_handle() { return _compiled_kernel; }
     std::shared_ptr<kernel> clone(bool reuse_kernel_handle = false) const override {
         if (reuse_kernel_handle)
-            return std::make_shared<ocl_kernel>(get_handle(), _kernel_id);
+            return std::make_shared<ocl_kernel>(get_handle(), _kernel_id, _kernel_source);
 
-        return std::make_shared<ocl_kernel>(get_handle().clone(), _kernel_id);
+        return std::make_shared<ocl_kernel>(get_handle().clone(), _kernel_id, _kernel_source);
+    }
+
+    std::vector<std::string> get_kernel_source() const {
+        return _kernel_source;
     }
 };
 

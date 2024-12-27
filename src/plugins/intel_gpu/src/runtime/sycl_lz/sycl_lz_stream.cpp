@@ -9,6 +9,12 @@
 #include "sycl_lz_engine.hpp"
 #include "sycl_lz_event.hpp"
 
+// OpenCL kernel
+#include "ocl/ocl_kernel.hpp"
+
+#include <sycl/ext/oneapi/backend/level_zero.hpp>
+namespace syclex = sycl::ext::oneapi::experimental;
+
 namespace cldnn {
 namespace sycl_lz {
 
@@ -35,7 +41,7 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
     GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 
-::sycl::queue& sycl_lz_stream::get_sycl_queue() {
+::sycl::queue& sycl_lz_stream::get_sycl_queue() const {
     OPENVINO_ASSERT(sycl_queue != nullptr);
     return *sycl_queue;
 }
@@ -53,15 +59,122 @@ void sycl_lz_stream::wait() {
 void sycl_lz_stream::set_arguments(kernel& kernel,
                                    const kernel_arguments_desc& args_desc,
                                    const kernel_arguments_data& args) {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. set_arguments no need at present.");
+    // static std::mutex m;
+    // std::lock_guard<std::mutex> guard(m);
+
+    // auto& ocl_kernel = downcast<ocl::ocl_kernel>(kernel);
+    // GPU_DEBUG_LOG << "sycl_lz_stream::set_arguments, ocl_kernel id = " << ocl_kernel.get_id() << std::endl;
+    // auto& kern = ocl_kernel.get_handle();
+
+    // try {
+    //     GPU_DEBUG_TRACE_DETAIL << "Set arguments for primitive: " << args_desc.layerID << " (" << kernel.get_id() << " = " << kern.get() << ")\n";
+    //     set_arguments_impl(kern, args_desc.arguments, args);
+    // } catch (cl::Error const& err) {
+    //     OPENVINO_THROW(OCL_ERR_MSG_FMT(err));
+    // }
 }
+
+inline sycl::range<3> toSyclRange(const std::vector<size_t>& v) {
+    switch (v.size()) {
+        case 1:
+            return sycl::range(1, 1, v[0]);
+        case 2:
+            return sycl::range(1, v[0], v[1]);
+        case 3:
+            return sycl::range(v[0], v[1], v[2]);
+        default:
+            return sycl::range{1, 1, 1};
+    }
+}
+
 event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                                           const kernel_arguments_desc& args_desc,
                                           const kernel_arguments_data& args,
                                           std::vector<event::ptr> const& deps,
                                           bool is_output) {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_kernel");
-    return nullptr;
+    DEBUG_PRINT("Temp implemented. enqueue OCL kernel via SYCL.");
+    auto& ocl_kernel = downcast<ocl::ocl_kernel>(kernel);
+
+    auto& kern = ocl_kernel.get_handle();
+
+    sycl::nd_range ndr =
+        sycl::nd_range{toSyclRange(args_desc.workGroups.global), toSyclRange(args_desc.workGroups.local)};
+    GPU_DEBUG_LOG << "sycl::nd_range global_range=[" << ndr.get_global_range()[0] << ", " << ndr.get_global_range()[1]
+                  << ", " << ndr.get_global_range()[2] << "], local_range=[" << ndr.get_local_range()[0] << ", "
+                  << ndr.get_local_range()[1] << ", " << ndr.get_local_range()[2] << "]" << std::endl;
+
+    // Kernel defined as an OpenCL C string.  This could be dynamically
+    // generated instead of a literal.
+    OPENVINO_ASSERT(ocl_kernel.get_kernel_source().size() > 0u);
+    std::string source;
+    for (auto s : ocl_kernel.get_kernel_source()) {
+        source += s;
+    }
+    std::cout << "  == source = \n" << source << std::endl;
+
+    std::cout << "  == Start to kernel_bundle opencl source" << std::endl;
+    sycl::kernel_bundle<sycl::bundle_state::ext_oneapi_source> kb_src =
+        syclex::create_kernel_bundle_from_source(
+            sycl_queue->get_context(),
+            syclex::source_language::opencl,
+            source);
+
+    // Compile and link the kernel from the source definition.
+    std::cout << "  == Start to build OpenCL kernel and kernel_bundle kb_src" << std::endl;
+    sycl::kernel_bundle<sycl::bundle_state::executable> kb_exe =
+        syclex::build(kb_src);
+
+    // Get a "kernel" object representing the kernel defined in the
+    // source string.
+    std::cout << "  == Start to get sycl::kernel, ocl_kernel.get_id() = " << ocl_kernel.get_id() << std::endl;
+
+    sycl::kernel k = kb_exe.ext_oneapi_get_kernel(ocl_kernel.get_id());
+
+    std::vector<sycl::event> dep_events;
+    std::vector<sycl::event>* dep_events_ptr = nullptr;
+    if (m_sync_method == SyncMethods::events) {
+        for (auto& dep : deps) {
+            if (auto ocl_base_ev = std::dynamic_pointer_cast<sycl_lz_base_event>(dep)) {
+                // if (ocl_base_ev->get() != nullptr)
+                dep_events.push_back(ocl_base_ev->get());
+            }
+        }
+        dep_events_ptr = &dep_events;
+    } else if (m_sync_method == SyncMethods::barriers) {
+        // sync_events(deps, is_output);
+        DEBUG_PRINT("Not implemented. m_sync_method == SyncMethods::barriers.");
+    }
+
+    // Unify all inputs.
+    std::vector<std::pair<sycl::buffer<uint8_t, 1, sycl::image_allocator, void>, bool>> inputs_buf;
+    for (size_t i = 0; i < args.inputs.size(); i++) {
+        // GPU_DEBUG_LOG << "  == args_desc.arguments[i].t = " << args_desc. << std::endl;
+        sycl::buffer params_buf(static_cast<uint8_t*>(args.inputs[i]->buffer_ptr()),
+                                sycl::range{args.inputs[i]->size()});
+        bool is_output = args_desc.arguments[i].t == argument_desc::Types::OUTPUT;
+        inputs_buf.push_back({params_buf, is_output});
+    }
+
+    std::cout << "  == Start to submit" << std::endl;
+    auto ret_ev = sycl_queue->submit([&](sycl::handler& cgh) {
+        cgh.depends_on(dep_events);
+        for (size_t i = 0; i < inputs_buf.size(); i++) {
+            if (inputs_buf[i].second) {
+                sycl::accessor acc_param{inputs_buf[i].first, cgh, sycl::read_write};
+                cgh.set_arg(i, acc_param);
+            } else {
+                sycl::accessor acc_param{inputs_buf[i].first, cgh, sycl::read_only};
+                cgh.set_arg(i, acc_param);
+            }
+        }
+
+        // Invoke the kernel over an nd-range.
+        cgh.parallel_for(ndr, k);
+    });
+
+    return std::make_shared<sycl_lz_event>(ret_ev, ++_queue_counter);
+    // return nullptr;
 }
 event::ptr sycl_lz_stream::enqueue_marker(std::vector<event::ptr> const& deps, bool is_output) {
     DEBUG_PRINT("Not implemented.");

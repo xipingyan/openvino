@@ -348,6 +348,11 @@ void kernels_cache::build_batch(const batch_program& batch, compiled_kernels& co
 
         // Run compilation
         if (precompiled_kernels.empty()) {
+            GPU_DEBUG_LOG << "============== batch.source batch.source.size() = " << batch.source.size() << std::endl;
+            for (size_t kn = 0; kn < batch.source.size(); kn++) {
+                GPU_DEBUG_LOG << " kernel source [" << kn
+                              << "]=" << reinterpret_cast<const char*>(batch.source[kn].data()) << std::endl;
+            }
             cl::Program program(cl_build_device.get_context(), batch.source);
             {
                 OV_ITT_SCOPED_TASK(ov::intel_gpu::itt::domains::intel_gpu_plugin, "KernelsCache::BuildProgram::RunCompilation");
@@ -385,6 +390,7 @@ void kernels_cache::build_batch(const batch_program& batch, compiled_kernels& co
                 ov::intel_gpu::save_binary(cached_bin_name, getProgramBinaries(program));
             }
         } else {
+            GPU_DEBUG_LOG << "batch.source 222 = " << reinterpret_cast<const char*>(precompiled_kernels.data()) << std::endl;
             cl::Program program(cl_build_device.get_context(), {cl_build_device.get_device()}, precompiled_kernels);
             if (program.build({cl_build_device.get_device()}, batch.options.c_str()) != CL_SUCCESS)
                 throw std::runtime_error("Failed in building program with a precompiled kernel.");
@@ -398,7 +404,10 @@ void kernels_cache::build_batch(const batch_program& batch, compiled_kernels& co
                 const auto& entry_point = k.getInfo<CL_KERNEL_FUNCTION_NAME>();
                 const auto& iter = batch.entry_point_to_id.find(entry_point);
                 if (iter != batch.entry_point_to_id.end()) {
-                    kernel::ptr kernel = std::make_shared<ocl::ocl_kernel>(ocl::ocl_kernel_type(k, cl_build_device.get_usm_helper()), entry_point);
+                    kernel::ptr kernel =
+                        std::make_shared<ocl::ocl_kernel>(ocl::ocl_kernel_type(k, cl_build_device.get_usm_helper()),
+                                                          entry_point,
+                                                          batch.source);
 
                     auto& params = iter->second.first;
                     auto kernel_part_idx = iter->second.second;
@@ -678,7 +687,13 @@ void kernels_cache::load(BinaryInputBuffer& ib) {
                 std::string cached_kernel_id = entry_point + "@" + std::to_string(precompiled_kernel.first);
                 const auto& iter = _cached_kernels.find(cached_kernel_id);
                 if (iter == _cached_kernels.end()) {
-                    _cached_kernels[cached_kernel_id] = std::make_shared<ocl::ocl_kernel>(ocl::ocl_kernel_type(k, build_device.get_usm_helper()), entry_point);
+                    std::vector<std::string> ks = {
+                        std::string(precompiled_kernel.second.begin(), precompiled_kernel.second.end())};
+
+                    _cached_kernels[cached_kernel_id] =
+                        std::make_shared<ocl::ocl_kernel>(ocl::ocl_kernel_type(k, build_device.get_usm_helper()),
+                                                          entry_point,
+                                                          ks);
                 }
             }
         }

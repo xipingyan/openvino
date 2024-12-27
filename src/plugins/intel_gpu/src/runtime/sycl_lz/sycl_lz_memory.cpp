@@ -84,12 +84,11 @@ void* gpu_usm::lock(const stream& stream, mem_lock_type type) {
             _host_buffer.allocateHost(_bytes_count);
             try {
                 const sycl_lz_stream& sycllz_stream = downcast<const sycl_lz_stream>(stream);
-                // sycl_lz_stream sss = sycllz_stream;
-                // sycllz_stream.get_usm_helper().enqueue_memcpy(sycllz_stream.get_sycl_queue_ptr(),
-                //                                               _host_buffer.get(),
-                //                                               _buffer.get(),
-                //                                               _bytes_count,
-                //                                               1);
+                sycllz_stream.get_usm_helper().enqueue_memcpy(sycllz_stream.get_sycl_queue(),
+                                                              _host_buffer.get(),
+                                                              _buffer.get(),
+                                                              _bytes_count,
+                                                              1);
             } catch (sycl::exception const& err) {
                 OPENVINO_THROW("[GPU] enqueue_memcpy failed: ", err.what());
             }
@@ -108,8 +107,7 @@ void gpu_usm::unlock(const stream& /* stream */) {
     _lock_count--;
     if (0 == _lock_count) {
         if (get_allocation_type() == allocation_type::usm_device) {
-            DEBUG_PRINT("Not implemented.");
-            // _host_buffer.freeMem();
+            _host_buffer.freeMem();
         }
         _mapped_ptr = nullptr;
     }
