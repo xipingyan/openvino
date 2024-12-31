@@ -137,7 +137,7 @@ template <typename AType, typename WType, typename DType>
                 // accum_t filter_val = (filter_compressed) * scale;
                 accumulator += a[input0_offset] * filter_compressed;
                 out << "  == accumulator=" << accumulator << ", a[input0_offset]=" << a[input0_offset]
-                    << ", filter_compressed=" << filter_compressed << ", K=" << K << ", a[0]=" << a[0] << sycl::endl;
+                    << ", filter_compressed=" << filter_compressed << ", K=" << K << sycl::endl;
             }
             const uint32_t dst_index = n + m * N + b * N * M;
             // accumulator = 20;
