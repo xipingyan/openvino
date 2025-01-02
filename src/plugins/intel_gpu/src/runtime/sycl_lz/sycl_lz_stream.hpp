@@ -4,11 +4,8 @@
 
 #pragma once
 
-#include "sycl_lz_stream.hpp"
-#include "sycl_lz_engine.hpp"
-
 #include "sycl/sycl.hpp"
-
+#include "sycl_lz_engine.hpp"
 
 namespace cldnn {
 namespace sycl_lz {

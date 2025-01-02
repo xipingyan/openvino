@@ -116,8 +116,7 @@ template <typename AType, typename WType, typename DType>
 
     return queue.submit([=](::sycl::handler& cgh) {
         // Print inside SYCL Kernel.
-        // sycl::stream out(1000*392, 1024, cgh);
-        sycl::stream out(384 * 20, 1024, cgh);
+        // sycl::stream out(384 * 20, 1024, cgh);
         cgh.parallel_for(::sycl::range<3>(out_shape[0], out_shape[1], out_shape[2]), [=](::sycl::id<3> index) {
             const uint32_t b = index[0];
             const uint32_t m = index[1];
@@ -136,13 +135,12 @@ template <typename AType, typename WType, typename DType>
                 accum_t filter_compressed = static_cast<accum_t>(w[filter_offset]);
                 // accum_t filter_val = (filter_compressed) * scale;
                 accumulator += a[input0_offset] * filter_compressed;
-                out << "  == accumulator=" << accumulator << ", a[input0_offset]=" << a[input0_offset]
-                    << ", filter_compressed=" << filter_compressed << ", K=" << K << sycl::endl;
+                // out << "  == accumulator=" << accumulator << ", a[input0_offset]=" << a[input0_offset]
+                //     << ", filter_compressed=" << filter_compressed << ", K=" << K << sycl::endl;
             }
             const uint32_t dst_index = n + m * N + b * N * M;
-            // accumulator = 20;
             dst[dst_index] = accumulator;
-            out << "== dst id:" << dst_index << ", accumulator=" << accumulator << sycl::endl;
+            // out << "== dst id:" << dst_index << ", accumulator=" << accumulator << sycl::endl;
         });
     });
 }

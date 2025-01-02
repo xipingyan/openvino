@@ -5,10 +5,18 @@
 
 namespace cldnn {
 namespace sycl_lz {
-
-#ifndef DEBUG_PRINT
-#    define DEBUG_PRINT(X) std::cout << "== " << __FILE__ << ":" << __LINE__ << " : " << X << std::endl
-#    define DEBUG_PRINT_VAR(X) std::cout << "== " << __FILE__ << ":" << __LINE__ << " : " << #X << " = " << X << std::endl
+#define ENABLE_MY_LOG 0
+#if ENABLE_MY_LOG
+#    ifndef DEBUG_PRINT
+#        define DEBUG_PRINT(X) std::cout << "== " << __FILE__ << ":" << __LINE__ << " : " << X << std::endl
+#        define DEBUG_PRINT_VAR(X) \
+            std::cout << "== " << __FILE__ << ":" << __LINE__ << " : " << #X << " = " << X << std::endl
+#    endif
+#else
+#    ifndef DEBUG_PRINT
+#        define DEBUG_PRINT(X)
+#        define DEBUG_PRINT_VAR(X)
+#    endif
 #endif
 
 }  // namespace sycl_lz
