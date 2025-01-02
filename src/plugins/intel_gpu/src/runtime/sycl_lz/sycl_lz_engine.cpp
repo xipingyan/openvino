@@ -127,13 +127,14 @@ bool sycl_lz_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) 
     if (&mem1 == &mem2)
         return true;
 
-    DEBUG_PRINT("Not implemented. sycl_lz_engine::is_the_same_buffer");
-    // if (!memory_capabilities::is_usm_type(mem1.get_allocation_type()))
-    //     return (reinterpret_cast<const sycl_lz::gpu_buffer&>(mem1).get_buffer() ==
-    //             reinterpret_cast<const ocl::gpu_buffer&>(mem2).get_buffer());
-    // else
-    //     return (reinterpret_cast<const ocl::gpu_usm&>(mem1).get_buffer() ==
-    //             reinterpret_cast<const ocl::gpu_usm&>(mem2).get_buffer());
+    if (!memory_capabilities::is_usm_type(mem1.get_allocation_type())) {
+        DEBUG_PRINT("Not implemented. sycl_lz_engine::is_the_same_buffer");
+        // return (reinterpret_cast<const sycl_lz::gpu_buffer&>(mem1).get_buffer() ==
+        //         reinterpret_cast<const sycl_lz::gpu_buffer&>(mem2).get_buffer());
+    } else {
+        return (reinterpret_cast<const sycl_lz::gpu_usm&>(mem1).get_buffer() ==
+                reinterpret_cast<const sycl_lz::gpu_usm&>(mem2).get_buffer());
+    }
 
     return false;
 }
@@ -187,14 +188,14 @@ bool sycl_lz_engine::check_allocatable(const layout& layout, allocation_type typ
 }
 
 void* sycl_lz_engine::get_user_context() const {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_engine::get_user_context()");
 
     return nullptr;
 }
 
 allocation_type sycl_lz_engine::detect_usm_allocation_type(const void* memory) const {
-    DEBUG_PRINT("Not implemented.");
-    return allocation_type::usm_shared;
+    return use_unified_shared_memory() ? sycl_lz::gpu_usm::detect_allocation_type(this, memory)
+                                       : allocation_type::unknown;
 }
 
 bool sycl_lz_engine::extension_supported(std::string extension) const {
@@ -207,7 +208,7 @@ stream& sycl_lz_engine::get_service_stream() const {
 }
 
 kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_engine::prepare_kernel");
     // OPENVINO_ASSERT(downcast<const ocl::ocl_kernel>(kernel.get()) != nullptr);
     return kernel;
 }

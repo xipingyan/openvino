@@ -47,14 +47,14 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
 }
 
 void sycl_lz_stream::flush() const {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::flush()");
 }
 void sycl_lz_stream::finish() const {
     DEBUG_PRINT("Temp implemented. sycl_queue->wait();");
     sycl_queue->wait();
 }
 void sycl_lz_stream::wait() {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::wait()");
 }
 
 cl_int set_kernel_arg(ocl::ocl_kernel_type& kernel, uint32_t idx, cldnn::memory::cptr mem) {
@@ -217,7 +217,8 @@ cl_int set_kernel_arg_sycl_kernel(
         // inputs_buf.push_back({params_buf, is_output});
         return CL_SUCCESS;
     } else if (memory_capabilities::is_usm_type(mem->get_allocation_type())) {
-        DEBUG_PRINT("  == Temp implemented. set_kernel_arg_sycl_kernel idx = " << idx << ", is_usm_type.");
+        GPU_DEBUG_LOG << "== Temp implemented. set_kernel_arg_sycl_kernel idx = " << idx << ", is_usm_type."
+                      << std::endl;
         sycl::buffer params_buf(static_cast<uint8_t*>(mem->buffer_ptr()), sycl::range{mem->size()});
         inputs_buf.push_back({params_buf, is_output});
         return CL_SUCCESS;
@@ -394,7 +395,7 @@ std::vector<std::pair<sycl::buffer<uint8_t, 1, sycl::image_allocator, void>, boo
 void sycl_lz_stream::set_arguments(kernel& kernel,
                                    const kernel_arguments_desc& args_desc,
                                    const kernel_arguments_data& args) {
-    DEBUG_PRINT("Not implemented. set_arguments no need at present.");
+    DEBUG_PRINT("Temp implemented. set_arguments is not needed at present.");
     // static std::mutex m;
     // std::lock_guard<std::mutex> guard(m);
 
@@ -423,50 +424,21 @@ inline sycl::range<3> toSyclRange(const std::vector<size_t>& v) {
     }
 }
 
-inline sycl::range<3> calcSyclLocal(const std::vector<size_t>& global, const std::vector<size_t>& local) {
-    switch (global.size()) {
-    case 1:
-        return sycl::range(1, 1, global[0] / local[0]);
-    case 2:
-        return sycl::range(1, global[0] / local[0], global[1] / local[1]);
-    case 3:
-        return sycl::range(global[0] / local[0], global[1] / local[1], global[2] / local[2]);
-    default:
-        return sycl::range{1, 1, 1};
-    }
-}
-
 event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                                           const kernel_arguments_desc& args_desc,
                                           const kernel_arguments_data& args,
                                           std::vector<event::ptr> const& deps,
                                           bool is_output) {
-    DEBUG_PRINT("Temp implemented. enqueue OCL kernel into SYCL runtime pipeline.");
+    GPU_DEBUG_LOG << "Temp implemented. enqueue OCL kernel into SYCL runtime pipeline." << std::endl;
     auto& ocl_kernel = downcast<ocl::ocl_kernel>(kernel);
 
     auto& kern = ocl_kernel.get_handle();
-
-    std::cout << "  args_desc.workGroups.global=[";
-    for (size_t i = 0; i < args_desc.workGroups.global.size(); i++) {
-        std::cout << args_desc.workGroups.global[i] << ",";
-    }
-    std::cout << "]" << std::endl;
-    std::cout << "  args_desc.workGroups.local=[";
-    for (size_t i = 0; i < args_desc.workGroups.local.size(); i++) {
-        std::cout << args_desc.workGroups.local[i] << ",";
-    }
-    std::cout << "]" << std::endl;
 
     sycl::nd_range ndr =
         sycl::nd_range{toSyclRange(args_desc.workGroups.global), toSyclRange(args_desc.workGroups.local)};
     GPU_DEBUG_LOG << "sycl::nd_range global_range=[" << ndr.get_global_range()[0] << ", " << ndr.get_global_range()[1]
                   << ", " << ndr.get_global_range()[2] << "], local_range=[" << ndr.get_local_range()[0] << ", "
                   << ndr.get_local_range()[1] << ", " << ndr.get_local_range()[2] << "]" << std::endl;
-    // sycl::nd_range ndr = sycl::nd_range{{std::accumulate(args_desc.workGroups.global.begin(),
-    //                                                      args_desc.workGroups.global.end(),
-    //                                                      1u,
-    //                                                      std::multiplies<size_t>())},
-    //                                     {1}};
 
     // Kernel defined as an OpenCL C string.  This could be dynamically
     // generated instead of a literal.
@@ -480,7 +452,6 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
     // fwrite(source.c_str(), sizeof(char), source.length(), pf);
     // fclose(pf);
 
-    std::cout << "  == Start to kernel_bundle opencl source" << std::endl;
     sycl::kernel_bundle<sycl::bundle_state::ext_oneapi_source> kb_src =
         syclex::create_kernel_bundle_from_source(
             sycl_queue->get_context(),
@@ -488,14 +459,11 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
             source);
 
     // Compile and link the kernel from the source definition.
-    std::cout << "  == Start to build OpenCL kernel and kernel_bundle kb_src" << std::endl;
     sycl::kernel_bundle<sycl::bundle_state::executable> kb_exe =
         syclex::build(kb_src);
 
     // Get a "kernel" object representing the kernel defined in the
     // source string.
-    std::cout << "  == Start to get sycl::kernel, ocl_kernel.get_id() = " << ocl_kernel.get_id() << std::endl;
-
     sycl::kernel k = kb_exe.ext_oneapi_get_kernel(ocl_kernel.get_id());
 
     std::vector<sycl::event> dep_events;
@@ -516,7 +484,6 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
     // Unify all inputs.
     auto inputs_buf = set_arguments_impl_sycl_kernel(args_desc.arguments, args, ocl_kernel.get_id());
 
-    std::cout << "  == Start to submit" << std::endl;
     auto ret_ev = sycl_queue->submit([&](sycl::handler& cgh) {
         cgh.depends_on(dep_events);
         for (size_t i = 0; i < inputs_buf.size(); i++) {
@@ -534,10 +501,9 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
     });
 
     return std::make_shared<sycl_lz_event>(ret_ev, ++_queue_counter);
-    // return nullptr;
 }
 event::ptr sycl_lz_stream::enqueue_marker(std::vector<event::ptr> const& deps, bool is_output) {
-    DEBUG_PRINT("Not implemented.");
+    DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_marker.");
     return nullptr;
 }
 event::ptr sycl_lz_stream::group_events(std::vector<event::ptr> const& deps) {

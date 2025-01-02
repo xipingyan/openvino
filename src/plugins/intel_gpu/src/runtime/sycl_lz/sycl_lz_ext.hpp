@@ -240,4 +240,11 @@ private:
     const UsmHelper& _usmHelper;
 };
 
+inline bool operator==(const UsmMemory& lhs, const UsmMemory& rhs) {
+    return lhs.get() == rhs.get();
+}
+
+inline bool operator!=(const UsmMemory& lhs, const UsmMemory& rhs) {
+    return !operator==(lhs, rhs);
+}
 }  // namespace sycl_lz
