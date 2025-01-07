@@ -30,8 +30,11 @@ private:
     // void get_program_source(const kernels_code& kernels_source_code, std::vector<batch_program>*) const;
     void build_batch(const batch_program& batch, compiled_kernels& compiled_kernels);
 
+    std::vector<std::string> get_kernel_id_from_source(const std::string& sources);
 
-    std::string get_kernel_id_from_source(const std::string& sources);
+    std::vector<std::pair<std::string, kernel::ptr>> build_sycl_lz_kernel(const std::string& sources,
+                                                                          const std::vector<std::string>& entry_point);
+
 public:
     explicit sycl_lz_kernels_cache(engine& engine,
                                    const ExecutionConfig& config,
