@@ -73,6 +73,7 @@
 
 // TODO: Remove once we have interface for kernels cache
 #include "impls/ocl/kernels_cache.hpp"
+#include "impls/ocl/kernels_cache_sycl_lz.hpp"
 
 // TODO: implement self-registration for impls
 #include "impls/ocl/register.hpp"
@@ -225,8 +226,24 @@ void program::init_program() {
 
     if (_task_executor == nullptr)
         _task_executor = program::make_task_executor(_config);
-    _kernels_cache = std::unique_ptr<kernels_cache>(new kernels_cache(_engine, _config, prog_id, _task_executor,
-                                                                      kernel_selector::KernelBase::get_db().get_batch_headers()));
+
+    if (_engine.runtime_type() == runtime_types::ocl) {
+        _kernels_cache = std::unique_ptr<kernels_cache>(
+            new kernels_cache(_engine,
+                              _config,
+                              prog_id,
+                              _task_executor,
+                              kernel_selector::KernelBase::get_db().get_batch_headers()));
+    } else if (_engine.runtime_type() == runtime_types::sycl_lz) {
+        _kernels_cache = std::unique_ptr<kernels_cache>(
+            new sycl_lz_kernels_cache(_engine,
+                                      _config,
+                                      prog_id,
+                                      _task_executor,
+                                      kernel_selector::KernelBase::get_db().get_batch_headers()));
+    } else {
+        OPENVINO_THROW("[GPU] Unsupported _engine.runtime_type()");
+    }
 
     _kernels_cache->set_kernels_reuse(get_config().get_property(ov::intel_gpu::hint::enable_kernels_reuse));
 

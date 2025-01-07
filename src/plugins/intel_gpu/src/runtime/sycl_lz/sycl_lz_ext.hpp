@@ -217,26 +217,30 @@ private:
     Wrapper for standard cl::Kernel object.
     Extend cl::Kernel functionality.
 */
-// class SyclLzKernelIntel : public sycl::kernel {
+// class SyclLzKernelIntel : public Kernel {
 class SyclLzKernelIntel {
 public:
-    // sycl::kernel()
-    explicit SyclLzKernelIntel(const UsmHelper& usmHelper) : _usmHelper(usmHelper) {}
-    // SyclLzKernelIntel(const sycl::kernel &other, const UsmHelper& usmHelper), _usmHelper(usmHelper) { }
+    // explicit SyclLzKernelIntel(const UsmHelper& usmHelper) : _usmHelper(usmHelper) {}
+    SyclLzKernelIntel(const sycl::kernel& other, const UsmHelper& usmHelper)
+        : _kernel(other),
+          _usmHelper(usmHelper) {}
 
     SyclLzKernelIntel clone() const {
-        DEBUG_PRINT("Not implemented.");
-        // sycl::kernel cloned_kernel(this->getInfo<CL_KERNEL_PROGRAM>(), this->getInfo<CL_KERNEL_FUNCTION_NAME>().c_str());
-        // return SyclLzKernelIntel(cloned_kernel, _usmHelper);
-        return SyclLzKernelIntel(this->_usmHelper);
+        return SyclLzKernelIntel(_kernel, this->_usmHelper);
     }
 
     cl_int setArgUsm(cl_uint index, const UsmMemory& mem) {
-        DEBUG_PRINT("Not implemented.");
+        DEBUG_PRINT("Not implemented. Maybe not need for sycl kernel");
         // return detail::errHandler(_usmHelper.set_kernel_arg_mem_pointer(*this, index, mem.get()), "[CL_EXT] setArgUsm in KernelIntel failed");
         return 0;
     }
+
+    sycl::kernel get_kernel() {
+        return _kernel;
+    }
+
 private:
+    sycl::kernel _kernel;
     const UsmHelper& _usmHelper;
 };
 
