@@ -44,6 +44,7 @@
 #include "kernel_selector/kernels/reorder/reorder_kernel_base.h"
 
 #include "impls/ocl/kernels_cache.hpp"
+#include "impls/ocl/kernels_cache_sycl_lz.hpp"
 
 #include <string>
 #include <type_traits>
@@ -102,7 +103,9 @@ bool query_local_block_io_supported(engine& e, const ExecutionConfig& config) {
 
     try {
         kernel_impl_params dummy_params;
-        auto _kernels_cache_device_query = std::unique_ptr<kernels_cache>(new kernels_cache(e, config, 0));
+        auto _kernels_cache_device_query = std::unique_ptr<kernels_cache>(
+            (e.runtime_type() == runtime_types::ocl) ? (new kernels_cache(e, config, 0))
+                                                     : (new sycl_lz_kernels_cache(e, config, 0)));
         _kernels_cache_device_query->add_kernels_source(dummy_params, {kernel_string}, false);
         _kernels_cache_device_query->build_all();
 
@@ -150,7 +153,9 @@ bool query_microkernels_supported(cldnn::engine& e, const cldnn::ExecutionConfig
 
     try {
         cldnn::kernel_impl_params dummy_params;
-        auto _kernels_cache_device_query = std::unique_ptr<cldnn::kernels_cache>(new cldnn::kernels_cache(e, config, 0));
+        auto _kernels_cache_device_query = std::unique_ptr<cldnn::kernels_cache>(
+            (e.runtime_type() == runtime_types::ocl) ? (new cldnn::kernels_cache(e, config, 0))
+                                                     : (new cldnn::sycl_lz_kernels_cache(e, config, 0)));
         _kernels_cache_device_query->add_kernels_source(dummy_params, {kernel_string}, false);
         _kernels_cache_device_query->build_all();
         cache[device] = true;

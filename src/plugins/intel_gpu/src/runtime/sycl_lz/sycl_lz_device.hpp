@@ -25,6 +25,13 @@ public:
     const sycl::platform& get_platform() const { return _platform; }
     const ::sycl_lz::UsmHelper& get_usm_helper() const { return *_usm_helper; }
 
+    const sycl::context& get_context() const {
+        return _context;
+    }
+    sycl::context& get_context() {
+        return _context;
+    }
+
     bool is_same(const device::ptr other) override;
 
     ~sycl_lz_device() = default;

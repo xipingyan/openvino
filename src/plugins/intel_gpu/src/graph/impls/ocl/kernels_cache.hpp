@@ -85,7 +85,7 @@ public:
 
     using compiled_kernels = std::unordered_map<kernel_impl_params, std::vector<std::pair<kernel::ptr, size_t>>, impl_hasher>;
 
-private:
+protected:
     static std::mutex _mutex;
     const device::ptr _device;
     std::shared_ptr<ov::threading::ITaskExecutor> _task_executor;
@@ -99,7 +99,7 @@ private:
     std::map<std::string, std::string> batch_headers;
     std::unordered_map<kernel_impl_params, size_t, impl_hasher> _kernel_batch_hash;
     void get_program_source(const kernels_code& kernels_source_code, std::vector<batch_program>*) const;
-    void build_batch(const batch_program& batch, compiled_kernels& compiled_kernels);
+    virtual void build_batch(const batch_program& batch, compiled_kernels& compiled_kernels);
 
     std::string get_cache_path() const;
     bool is_cache_enabled() const;
