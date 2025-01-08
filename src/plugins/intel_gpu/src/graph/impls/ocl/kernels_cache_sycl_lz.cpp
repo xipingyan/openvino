@@ -180,7 +180,7 @@ void sycl_lz_kernels_cache::build_batch(const batch_program& batch, compiled_ker
 
         // Run compilation
         if (precompiled_kernels.empty()) {
-            GPU_DEBUG_LOG << "============== batch.source batch.source.size() = " << batch.source.size() << std::endl;
+            GPU_DEBUG_LOG << "=============================" << std::endl;
 
             // cl::Program program(sycl_lz_device.get_context(), batch.source);
             {
