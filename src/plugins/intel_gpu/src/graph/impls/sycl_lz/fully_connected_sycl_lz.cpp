@@ -29,7 +29,7 @@ template<> struct AccumulatorType<::sycl::half, ::sycl::half> {
 };
 
 template <typename AType, typename WType, typename DType>
-::sycl::event run_fc_f32(::sycl::queue& queue,
+::sycl::event run_fc_common(::sycl::queue& queue,
                          bool enqueue_barrier,
                          const AType* a,
                          const WType* w,
@@ -40,7 +40,9 @@ template <typename AType, typename WType, typename DType>
                          size_t group_size,
                          size_t groups_num,
                          const ov::Shape& out_shape) {
-    GPU_DEBUG_LOG << "Temp solution. GemmSyclLzImplementationManager::run_fc_f32" << std::endl;
+    GPU_DEBUG_LOG << "Pure SYCL kernel: run_fc_common, AType=" << typeid(AType).name()
+                  << ", WType=" << typeid(AType).name() << ", DType=" << typeid(DType).name() << ", M=" << M
+                  << ", N=" << N << ", K=" << K << std::endl;
     if (enqueue_barrier) {
         queue.submit([=](::sycl::handler& cgh) {
             cgh.ext_oneapi_barrier();
@@ -384,14 +386,21 @@ protected:
             const float* wei = static_cast<const float*>(weights->buffer_ptr());
             float* out = static_cast<float*>(output->buffer_ptr());
             return stream.create_base_event(
-                run_fc_f32(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
+                run_fc_common(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
         } else if ((CASE(f16, f16, f32))) {
             const ::sycl::half* in = static_cast<const ::sycl::half*>(inputs[0]->buffer_ptr());
             const ::sycl::half* wei = static_cast<const ::sycl::half*>(weights->buffer_ptr());
             float* out = static_cast<float*>(output->buffer_ptr());
 
             return stream.create_base_event(
-                run_fc_in_f16_out_f32(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
+                run_fc_common(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
+        } else if ((CASE(f16, f16, f16))) {
+            const ::sycl::half* in = static_cast<const ::sycl::half*>(inputs[0]->buffer_ptr());
+            const ::sycl::half* wei = static_cast<const ::sycl::half*>(weights->buffer_ptr());
+            ::sycl::half* out = static_cast<::sycl::half*>(output->buffer_ptr());
+
+            return stream.create_base_event(
+                run_fc_common(sycl_queue, barrier, in, wei, out, M, N, K, group_size, groups_num, out_shape));
         } else {
             OPENVINO_THROW("No instance for given types found: ", in_t, " ", wei_t, " ", out_t);
         }
