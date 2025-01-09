@@ -35,32 +35,39 @@ size_t collect_stats(const std::shared_ptr<ov::Model>& m, std::map<DiscreteTypeI
 }  // namespace
 
 void PrintModelStatistics::print_model(const std::shared_ptr<ov::Model>& m) {
+    std::string model_prefix = transformation_callback(nullptr) ? "gpu_" : "src_";
+
     std::stringstream ss;
     ss << "=======================================================\n"
        << "== Print model, name = " << m->get_friendly_name() << std::endl;
 
-    const std::vector<std::shared_ptr<ov::Node>> ops = m->get_ops();
-    for (auto& op : ops) {
-        ss << "  " << op->get_friendly_name() << "=" << op->get_type_name() << "(";
+    auto print_one_op = [&ss, &model_prefix](const std::shared_ptr<ov::Node>& op, const std::string& prefix = "  ") {
+#define PRINT_OP(cur_op)                                                                            \
+    model_prefix << cur_op->get_friendly_name() << "[" << cur_op->get_output_element_type(0) << "]" \
+                 << cur_op->get_output_partial_shape(0).to_string()
+
+        ss << prefix << PRINT_OP(op) << " = " << op->get_type_name() << "(";
         for (size_t i = 0; i < op->get_input_size(); i++) {
-            ss << op->get_input_node_shared_ptr(i)->get_friendly_name()
-               << (i == op->get_input_size() - 1 ? ")\n" : ", ");
+            ss << PRINT_OP(op->get_input_node_shared_ptr(i)) << (i == op->get_input_size() - 1 ? ")\n" : ", ");
         }
         if (op->get_input_size() == 0) {
             ss << ")\n";
         }
+    };
 
-        if (auto subgraph_op = std::dynamic_pointer_cast<ov::op::util::MultiSubGraphOp>(op)) {
-            for (const auto& subgraph : subgraph_op->get_functions()) {
-                const std::vector<std::shared_ptr<ov::Node>> sub_ops = subgraph->get_ops();
-                for (auto& sub_op : sub_ops) {
-                    ss << "    == name:" << sub_op->get_friendly_name() << "=" << sub_op->get_type_name() << "(";
-                    for (size_t s = 0; s < sub_op->get_input_size(); s++) {
-                        ss << sub_op->get_input_node_shared_ptr(s)->get_friendly_name()
-                           << (s == sub_op->get_input_size() - 1 ? ")\n" : ", ");
-                    }
-                    if (sub_op->get_input_size() == 0) {
-                        ss << ")\n";
+    const std::vector<std::shared_ptr<ov::Node>> ops = m->get_ops();
+    if (ops.size() == 1) {
+        print_one_op(ops[0]);
+    } else if (ops.size() > 1) {
+        print_one_op(ops[0]);
+        for (size_t i = ops.size() - 1; i > 0; i--) {
+            print_one_op(ops[i]);
+
+            if (auto subgraph_op = std::dynamic_pointer_cast<ov::op::util::MultiSubGraphOp>(ops[i])) {
+                for (const auto& subgraph : subgraph_op->get_functions()) {
+                    const std::vector<std::shared_ptr<ov::Node>> sub_ops = subgraph->get_ops();
+                    for (auto& sub_op : sub_ops) {
+                        print_one_op(sub_op, "    ");
                     }
                 }
             }

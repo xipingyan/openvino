@@ -78,6 +78,34 @@ struct argument_desc {
     uint32_t index;
 };
 
+inline std::ostream& operator<<(std::ostream& os, const argument_desc::Types& type) {
+#define CASE_ITM(ITM) \
+    case ITM:         \
+        os << #ITM;   \
+        break
+    switch (type) {
+        CASE_ITM(argument_desc::Types::ACTIVATIONS_ZERO_POINTS);
+        CASE_ITM(argument_desc::Types::BIAS);
+        CASE_ITM(argument_desc::Types::CELL);
+        CASE_ITM(argument_desc::Types::COMPENSATION);
+        CASE_ITM(argument_desc::Types::INPUT);
+        CASE_ITM(argument_desc::Types::INPUT_OF_FUSED_PRIMITIVE);
+        CASE_ITM(argument_desc::Types::INTERNAL_BUFFER);
+        CASE_ITM(argument_desc::Types::OUTPUT);
+        CASE_ITM(argument_desc::Types::SCALAR);
+        CASE_ITM(argument_desc::Types::SCALE_TABLE);
+        CASE_ITM(argument_desc::Types::SHAPE_INFO);
+        CASE_ITM(argument_desc::Types::SLOPE);
+        CASE_ITM(argument_desc::Types::WEIGHTS);
+        CASE_ITM(argument_desc::Types::WEIGHTS_ZERO_POINTS);
+    default:
+        os << "unknown";
+        break;
+    }
+
+    return os;
+}
+
 using arguments_desc = std::vector<argument_desc>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

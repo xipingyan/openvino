@@ -7,6 +7,7 @@
 # define NOMINMAX
 #endif
 #include "gpu/intel/jit/jit_generator.hpp"
+#include "gpu/intel/jit/ngen/ngen_level_zero.hpp"
 #endif  // ENABLE_ONEDNN_FOR_GPU
 
 #include "sycl_lz_common.hpp"
@@ -287,25 +288,29 @@ device_info init_device_info(const sycl::device& device) {
         std::fill_n(std::begin(info.uuid.uuid), ov::device::UUID::MAX_UUID_SIZE, 0);
     }
 
-    bool device_attr_supported = in_extensions("cl_intel_device_attribute_query");
-    bool nv_device_attr_supported = in_extensions("cl_nv_device_attribute_query");
+    // bool device_attr_supported = in_extensions("cl_intel_device_attribute_query");
+    // bool nv_device_attr_supported = in_extensions("cl_nv_device_attribute_query");
     info.has_separate_cache = false;
     // if (device_attr_supported) {
     //     info.ip_version = device.get_info<sycl::info::device::IP_VERSION_INTEL>();
     //     info.gfx_ver = parse_version(info.ip_version);
     //     info.device_id = device.get_info<sycl::info::device::ID_INTEL>();
-    //     info.num_slices = device.get_info<sycl::info::device::NUM_SLICES_INTEL>();
-    //     info.num_sub_slices_per_slice = device.get_info<sycl::info::device::NUM_SUB_SLICES_PER_SLICE_INTEL>();
-    //     info.num_eus_per_sub_slice = device.get_info<sycl::info::device::NUM_EUS_PER_SUB_SLICE_INTEL>();
-    //     info.num_threads_per_eu = device.get_info<sycl::info::device::NUM_THREADS_PER_EU_INTEL>();
-    //     auto features = device.get_info<sycl::info::device::FEATURE_CAPABILITIES_INTEL>();
+    info.num_slices = device.get_info<sycl::info::device::ext_intel_gpu_slices>();
+    info.num_sub_slices_per_slice = device.get_info<sycl::info::device::ext_intel_gpu_subslices_per_slice>();
+    info.num_eus_per_sub_slice = device.get_info<sycl::info::device::ext_intel_gpu_eu_count_per_subslice>();
+    info.num_threads_per_eu = device.get_info<sycl::info::device::ext_intel_gpu_hw_threads_per_eu>();
+    // auto features = device.get_info<sycl::info::device::FEATURE_CAPABILITIES_INTEL>();
+
+    // Temp solution. oneDNN kernel need info.supports_immad == true.
+    GPU_DEBUG_LOG << "Temp solution, hard code info.supports_immad == true, because oneDNN need it." << std::endl;
+    info.supports_immad = true;
 
     //     info.supports_imad = info.supports_imad || (features & CL_DEVICE_FEATURE_FLAG_DP4A_INTEL);
     //     info.supports_immad = info.supports_immad || (features & CL_DEVICE_FEATURE_FLAG_DPAS_INTEL);
-    //     if (info.dev_type == device_type::discrete_gpu || info.gfx_ver.major > 12 ||
-    //         (info.gfx_ver.major == 12 && info.gfx_ver.minor >= 70)) {
-    //         info.has_separate_cache = true;
-    //     }
+    // if (info.dev_type == device_type::discrete_gpu || info.gfx_ver.major > 12 ||
+    //     (info.gfx_ver.major == 12 && info.gfx_ver.minor >= 70)) {
+    //     info.has_separate_cache = true;
+    // }
     //     GPU_DEBUG_INFO << "GPU version: " << static_cast<int>(info.gfx_ver.major) << "."
     //                    << static_cast<int>(info.gfx_ver.minor) << "." << static_cast<int>(info.gfx_ver.revision)
     //                    << (info.has_separate_cache ? " with separate cache" : "") << std::endl;
@@ -348,9 +353,10 @@ device_info init_device_info(const sycl::device& device) {
 
     // "Not implemented[SYCL_RUNTIME]. oneDNN"
     // Because the next 3 lines codes will depend on level-zero. so temp comment it.
-    // auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(device);
-    // auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(sycl::queue(device).get_context());
-    // ngen::LevelZeroCodeGenerator<ngen::HW::Unknown>::detectHWInfo(zeContext, zeDevice, hw, product);
+    auto zeDevice = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(device);
+    auto zeContext = sycl::get_native<sycl::backend::ext_oneapi_level_zero>(sycl::queue(device).get_context());
+    ngen::LevelZeroCodeGenerator<ngen::HW::Unknown>::detectHWInfo(zeContext, zeDevice, hw, product);
+    // jit_generator<ngen::HW::Unknown>::detectHWInfo(context.get(), device.get(), hw, product);
 
     info.arch = convert_ngen_arch(hw);
     // We change the value of this flag to avoid OneDNN usage for the platforms unknown to OneDNN

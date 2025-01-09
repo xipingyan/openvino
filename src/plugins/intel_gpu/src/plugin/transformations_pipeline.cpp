@@ -278,7 +278,11 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
     // Print src model
     GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
         ov::pass::Manager manager("Plugin:GPU:PrintSrcModel");
+        auto pass_config = manager.get_pass_config();
         manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
+        pass_config->set_callback<ov::intel_gpu::PrintModelStatistics>([](const_node_ptr& node) -> bool {
+            return false;
+        });
         manager.run_passes(func);
     }
 
@@ -1002,15 +1006,17 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
         // This is supposed to be the last pass to ensure that we don't have name collisions until
         // GPU plugin stops using friendly names for program creation
         manager.register_pass<ov::pass::ResolveNameCollisions>(true);
-        GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
-            manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
-        }
+
         manager.run_passes(func);
     }
 
     GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
         ov::pass::Manager manager("Plugin:GPU:PrintGPUModel");
+        auto pass_config = manager.get_pass_config();
         manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
+        pass_config->set_callback<ov::intel_gpu::PrintModelStatistics>([](const_node_ptr& node) -> bool {
+            return true;  // means last
+        });
         manager.run_passes(func);
     }
 }

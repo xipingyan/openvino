@@ -77,8 +77,6 @@ cl_int set_kernel_arg_sycl_kernel(
         // inputs_buf.push_back({params_buf, is_output});
         return CL_SUCCESS;
     } else if (memory_capabilities::is_usm_type(mem->get_allocation_type())) {
-        GPU_DEBUG_LOG << "== Temp implemented. set_kernel_arg_sycl_kernel idx = " << idx << ", is_usm_type."
-                      << std::endl;
         sycl::buffer params_buf(static_cast<uint8_t*>(mem->buffer_ptr()), sycl::range{mem->size()});
         inputs_buf.push_back({params_buf, is_output});
         return CL_SUCCESS;
@@ -110,8 +108,7 @@ std::vector<std::pair<sycl::buffer<uint8_t, 1, sycl::image_allocator, void>, boo
 
     for (uint32_t i = 0; i < static_cast<uint32_t>(args.size()); i++) {
         cl_int status = CL_INVALID_ARG_VALUE;
-        GPU_DEBUG_LOG << "set_arguments_impl_sycl_kernel, i = " << i
-                      << ", args[i].t=" << static_cast<int32_t>(args[i].t) << std::endl;
+        GPU_DEBUG_LOG << "i = " << i << ", args[i].t=" << args[i].t << std::endl;
         switch (args[i].t) {
         case args_t::INPUT:
             if (args[i].index < data.inputs.size() && data.inputs[args[i].index]) {
@@ -296,11 +293,12 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
 
     sycl::nd_range ndr =
         sycl::nd_range{toSyclRange(args_desc.workGroups.global), toSyclRange(args_desc.workGroups.local)};
-    GPU_DEBUG_LOG << "sycl::nd_range global_range=[" << ndr.get_global_range()[0] << ", " << ndr.get_global_range()[1]
-                  << ", " << ndr.get_global_range()[2] << "], local_range=[" << ndr.get_local_range()[0] << ", "
-                  << ndr.get_local_range()[1] << ", " << ndr.get_local_range()[2] << "]" << std::endl;
 
     sycl::kernel k = kern.get_kernel();
+    GPU_DEBUG_LOG << "kernel_id = " << sycl_kernel.get_id() << ", sycl::nd_range global_range=["
+                  << ndr.get_global_range()[0] << ", " << ndr.get_global_range()[1] << ", " << ndr.get_global_range()[2]
+                  << "], local_range=[" << ndr.get_local_range()[0] << ", " << ndr.get_local_range()[1] << ", "
+                  << ndr.get_local_range()[2] << "]" << std::endl;
 
     std::vector<sycl::event> dep_events;
     std::vector<sycl::event>* dep_events_ptr = nullptr;
