@@ -44,7 +44,7 @@ void PrintModelStatistics::print_model(const std::shared_ptr<ov::Model>& m) {
     auto print_one_op = [&ss, &model_prefix](const std::shared_ptr<ov::Node>& op, const std::string& prefix = "  ") {
 #define PRINT_OP(cur_op)                                                                            \
     model_prefix << cur_op->get_friendly_name() << "[" << cur_op->get_output_element_type(0) << "]" \
-                 << op->get_output_partial_shape(0).to_string()
+                 << cur_op->get_output_partial_shape(0).to_string()
 
         ss << prefix << PRINT_OP(op) << " = " << op->get_type_name() << "(";
         for (size_t i = 0; i < op->get_input_size(); i++) {

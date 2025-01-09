@@ -288,8 +288,8 @@ device_info init_device_info(const sycl::device& device) {
         std::fill_n(std::begin(info.uuid.uuid), ov::device::UUID::MAX_UUID_SIZE, 0);
     }
 
-    bool device_attr_supported = in_extensions("cl_intel_device_attribute_query");
-    bool nv_device_attr_supported = in_extensions("cl_nv_device_attribute_query");
+    // bool device_attr_supported = in_extensions("cl_intel_device_attribute_query");
+    // bool nv_device_attr_supported = in_extensions("cl_nv_device_attribute_query");
     info.has_separate_cache = false;
     // if (device_attr_supported) {
     //     info.ip_version = device.get_info<sycl::info::device::IP_VERSION_INTEL>();
