@@ -3,8 +3,12 @@
 //
 
 #include "sycl_lz_engine.hpp"
-#include "sycl_lz_stream.hpp"
+
+#include "oneapi/dnnl/dnnl.hpp"
+#include "oneapi/dnnl/dnnl_debug.h"
+#include "oneapi/dnnl/dnnl_sycl.hpp"
 #include "sycl_lz_memory.hpp"
+#include "sycl_lz_stream.hpp"
 
 namespace cldnn {
 namespace sycl_lz {
@@ -216,6 +220,19 @@ kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
 #ifdef ENABLE_ONEDNN_FOR_GPU
 void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
     DEBUG_PRINT("Not implemented.");
+    const std::lock_guard<std::mutex> lock(onednn_mutex);
+    OPENVINO_ASSERT(_device->get_info().vendor_id == INTEL_VENDOR_ID, "[GPU] OneDNN engine can be used for Intel GPUs only");
+
+    if (!_onednn_engine) {
+        std::string cache_dir = config.get_property(ov::cache_dir);
+        if (!cache_dir.empty()) {
+            GPU_DEBUG_LOG << "Not implemented. oneDNN sycl_interop don't support make_engine from cache." << std::endl;
+        }
+
+        auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
+        auto device = casted_dev->get_device();
+        _onednn_engine = std::make_shared<dnnl::engine>(dnnl::sycl_interop::make_engine(device, *sycl_context));
+    }
 }
 // Returns onednn engine object which shares device and context with current engine
 dnnl::engine& sycl_lz_engine::get_onednn_engine() const {
