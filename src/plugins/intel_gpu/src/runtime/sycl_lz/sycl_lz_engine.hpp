@@ -50,11 +50,10 @@ public:
 #endif
 
     ::sycl::context& get_sycl_context() const;
-    std::unique_ptr<::sycl::context> sycl_context = nullptr;
     const ::sycl_lz::UsmHelper& get_usm_helper() const;
 
 private:
-    std::unique_ptr<sycl::queue> _queue = nullptr;
+    std::unique_ptr<::sycl::context> sycl_context = nullptr;
 
     std::string _extensions;
     std::unique_ptr<stream> _service_stream;

@@ -21,9 +21,7 @@ sycl_lz_engine::sycl_lz_engine(const device::ptr dev, runtime_types runtime_type
 
     auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
     auto device = casted_dev->get_device();
-
-    // _queue = cldnn::make_unique<sycl::queue>(device);
-    sycl_context = cldnn::make_unique<::sycl::context>(device); // "MAYBE NOT NEED. sycl_context"
+    sycl_context = cldnn::make_unique<::sycl::context>(device);
 }
 
 stream::ptr sycl_lz_engine::create_stream(const ExecutionConfig& config) const {
@@ -219,7 +217,7 @@ kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
 void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Temp implemented. create_onednn_engine" << std::endl;
     const std::lock_guard<std::mutex> lock(onednn_mutex);
     OPENVINO_ASSERT(_device->get_info().vendor_id == INTEL_VENDOR_ID, "[GPU] OneDNN engine can be used for Intel GPUs only");
 
@@ -231,7 +229,8 @@ void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
 
         auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
         auto device = casted_dev->get_device();
-        _onednn_engine = std::make_shared<dnnl::engine>(dnnl::sycl_interop::make_engine(device, *sycl_context));
+        auto context = casted_dev->get_context();
+        _onednn_engine = std::make_shared<dnnl::engine>(dnnl::sycl_interop::make_engine(device, context));
     }
 }
 // Returns onednn engine object which shares device and context with current engine
