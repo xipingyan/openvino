@@ -82,7 +82,6 @@ void* gpu_usm::lock(const stream& stream, mem_lock_type type) {
             }
             GPU_DEBUG_LOG << "Copy usm_device buffer to host buffer." << std::endl;
 
-            // DEBUG_PRINT("Not implemented. _host_buffer.allocateHost(_bytes_count);");
             _host_buffer.allocateHost(_bytes_count);
             try {
                 const sycl_lz_stream& sycllz_stream = downcast<const sycl_lz_stream>(stream);
@@ -120,7 +119,7 @@ event::ptr gpu_usm::fill(stream& stream, unsigned char pattern, bool blocking) {
         GPU_DEBUG_TRACE_DETAIL << "Skip gpu_usm::fill for 0 size tensor" << std::endl;
         return nullptr;
     }
-    DEBUG_PRINT("Not implemented. _bytes_count = " << _bytes_count);
+    GPU_DEBUG_LOG << "Not implemented. _bytes_count = " << _bytes_count << std::endl;
     return nullptr;
     // auto& cl_stream = downcast<sycl_lz_stream>(stream);
     // auto ev = stream.create_base_event();
@@ -143,7 +142,7 @@ event::ptr gpu_usm::fill(stream& stream, bool blocking) {
 }
 
 event::ptr gpu_usm::copy_from(stream& stream, const void* data_ptr, size_t src_offset, size_t dst_offset, size_t size, bool blocking) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 
     // auto result_event = create_event(stream, size, blocking);
@@ -161,7 +160,7 @@ event::ptr gpu_usm::copy_from(stream& stream, const void* data_ptr, size_t src_o
 }
 
 event::ptr gpu_usm::copy_from(stream& stream, const memory& src_mem, size_t src_offset, size_t dst_offset, size_t size, bool blocking) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 
     // auto result_event = create_event(stream, size, blocking);

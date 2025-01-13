@@ -201,7 +201,6 @@ bool get_imad_support(const sycl::device& device) {
 
 device_info init_device_info(const sycl::device& device) {
     device_info info = {};
-    DEBUG_PRINT("init_device_info");
 
     info.vendor_id = static_cast<uint32_t>(device.get_info<sycl::info::device::vendor_id>());
     info.dev_name = device.get_info<sycl::info::device::name>();

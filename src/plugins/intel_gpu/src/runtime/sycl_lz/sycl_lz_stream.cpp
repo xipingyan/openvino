@@ -46,14 +46,14 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
 }
 
 void sycl_lz_stream::flush() const {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::flush()");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::flush()" << std::endl;
 }
 void sycl_lz_stream::finish() const {
-    DEBUG_PRINT("Temp implemented. sycl_queue->wait();");
+    GPU_DEBUG_LOG << "Temp implemented. sycl_queue->wait();" << std::endl;
     sycl_queue->wait();
 }
 void sycl_lz_stream::wait() {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::wait()");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::wait()" << std::endl;
 }
 
 cl_int set_kernel_arg_sycl_kernel(
@@ -250,7 +250,7 @@ std::vector<std::pair<sycl::buffer<uint8_t, 1, sycl::image_allocator, void>, boo
 void sycl_lz_stream::set_arguments(kernel& kernel,
                                    const kernel_arguments_desc& args_desc,
                                    const kernel_arguments_data& args) {
-    DEBUG_PRINT("Temp implemented. set_arguments is not needed at present.");
+    GPU_DEBUG_LOG << "Temp implemented. set_arguments is not needed at present." << std::endl;
     // static std::mutex m;
     // std::lock_guard<std::mutex> guard(m);
 
@@ -310,7 +310,7 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
         dep_events_ptr = &dep_events;
     } else if (m_sync_method == SyncMethods::barriers) {
         // sync_events(deps, is_output);
-        DEBUG_PRINT("Not implemented. m_sync_method == SyncMethods::barriers.");
+        GPU_DEBUG_LOG << "Not implemented. m_sync_method == SyncMethods::barriers." << std::endl;
     }
 
     // Unify all inputs.
@@ -335,11 +335,11 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
     return std::make_shared<sycl_lz_event>(ret_ev, ++_queue_counter);
 }
 event::ptr sycl_lz_stream::enqueue_marker(std::vector<event::ptr> const& deps, bool is_output) {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_marker.");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::enqueue_marker." << std::endl;
     return nullptr;
 }
 event::ptr sycl_lz_stream::group_events(std::vector<event::ptr> const& deps) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 }
 
@@ -354,7 +354,8 @@ void sycl_lz_stream::wait_for_events(const std::vector<event::ptr>& events) {
             sycl_lz_base_ev->get().wait();
         }
     }
-    DEBUG_PRINT("sycl_lz_stream::wait_for_events finish. Temp solution, events.size=" << events.size());
+    GPU_DEBUG_LOG << "sycl_lz_stream::wait_for_events finish. Temp solution, events.size=" << events.size()
+                  << std::endl;
     // bool needs_barrier = false;
     // std::vector<sycl_lz_event> clevents;
     // for (auto& ev : events) {
@@ -388,14 +389,14 @@ void sycl_lz_stream::wait_for_events(const std::vector<event::ptr>& events) {
     // }
 }
 void sycl_lz_stream::enqueue_barrier() {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::enqueue_barrier");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::enqueue_barrier" << std::endl;
 }
 event::ptr sycl_lz_stream::create_user_event(bool set) {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::create_user_event");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::create_user_event" << std::endl;
     return nullptr;
 }
 event::ptr sycl_lz_stream::create_base_event() {
-    DEBUG_PRINT("Not implemented. sycl_lz_stream::create_base_event");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::create_base_event" << std::endl;
     return nullptr;
 }
 
@@ -410,7 +411,7 @@ dnnl::stream& sycl_lz_stream::get_onednn_stream() {
     OPENVINO_ASSERT(_engine.get_device_info().vendor_id == INTEL_VENDOR_ID,
                     "[GPU] Can't create onednn stream handle as for non-Intel devices");
     if (!_onednn_stream) {
-        DEBUG_PRINT("Not implemented.");
+        GPU_DEBUG_LOG << "Not implemented." << std::endl;
         // auto r = dnnl_sycl_interop_stream_create(&_onednn_stream, _engine.get_onednn_engine(), &_command_queue);
         // OPENVINO_ASSERT(r == dnnl_success, "[GPU] dnnl_sycl_interop_stream_create fail.");
     }

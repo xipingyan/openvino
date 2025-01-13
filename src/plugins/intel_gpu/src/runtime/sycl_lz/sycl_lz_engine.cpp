@@ -83,7 +83,7 @@ memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type
     }
 }
 memory_ptr sycl_lz_engine::reinterpret_handle(const layout& new_layout, shared_mem_params params) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 }
 memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout& new_layout) {
@@ -94,7 +94,7 @@ memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout
 
     try {
         if (new_layout.format.is_image_2d()) {
-            DEBUG_PRINT("Not implemented.");
+            GPU_DEBUG_LOG << "Not implemented." << std::endl;
             return nullptr;
             // return std::make_shared<ocl::gpu_image2d>(this,
             //                                           new_layout,
@@ -107,7 +107,7 @@ memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout
                                                       memory.get_allocation_type(),
                                                       memory.get_mem_tracker());
         } else {
-            DEBUG_PRINT("Not implemented.");
+            GPU_DEBUG_LOG << "Not implemented." << std::endl;
             return nullptr;
             // return std::make_shared<ocl::gpu_buffer>(this,
             //                                          new_layout,
@@ -130,7 +130,7 @@ bool sycl_lz_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) 
         return true;
 
     if (!memory_capabilities::is_usm_type(mem1.get_allocation_type())) {
-        DEBUG_PRINT("Not implemented. sycl_lz_engine::is_the_same_buffer");
+        GPU_DEBUG_LOG << "Not implemented. sycl_lz_engine::is_the_same_buffer" << std::endl;
         // return (reinterpret_cast<const sycl_lz::gpu_buffer&>(mem1).get_buffer() ==
         //         reinterpret_cast<const sycl_lz::gpu_buffer&>(mem2).get_buffer());
     } else {
@@ -190,7 +190,7 @@ bool sycl_lz_engine::check_allocatable(const layout& layout, allocation_type typ
 }
 
 void* sycl_lz_engine::get_user_context() const {
-    DEBUG_PRINT("Not implemented. sycl_lz_engine::get_user_context()");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_engine::get_user_context()" << std::endl;
 
     return nullptr;
 }
@@ -201,7 +201,7 @@ allocation_type sycl_lz_engine::detect_usm_allocation_type(const void* memory) c
 }
 
 bool sycl_lz_engine::extension_supported(std::string extension) const {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return false;
 }
 
@@ -210,7 +210,7 @@ stream& sycl_lz_engine::get_service_stream() const {
 }
 
 kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
-    DEBUG_PRINT("Not implemented. sycl_lz_engine::prepare_kernel");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_engine::prepare_kernel" << std::endl;
     // OPENVINO_ASSERT(downcast<const ocl::ocl_kernel>(kernel.get()) != nullptr);
     return kernel;
 }
@@ -238,6 +238,8 @@ dnnl::engine& sycl_lz_engine::get_onednn_engine() const {
     OPENVINO_ASSERT(_onednn_engine,
                     "[GPU] Can't get onednn engine handle as it was not initialized. Please check that "
                     "create_onednn_engine() was called");
+
+    GPU_DEBUG_LOG << "get_onednn_engine _onednn_engine = " << _onednn_engine << std::endl;
     return *_onednn_engine;
 }
 #endif
