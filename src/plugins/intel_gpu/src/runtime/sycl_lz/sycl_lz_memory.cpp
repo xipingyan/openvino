@@ -2,19 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "sycl_lz_memory.hpp"
+
+#include <stdexcept>
+#include <vector>
+
 #include "intel_gpu/runtime/debug_configuration.hpp"
 #include "intel_gpu/runtime/error_handler.hpp"
 #include "intel_gpu/runtime/memory.hpp"
 #include "intel_gpu/runtime/utils.hpp"
-#include "sycl_lz_memory.hpp"
 #include "sycl_lz_engine.hpp"
-#include "sycl_lz_stream.hpp"
 #include "sycl_lz_event.hpp"
-#include <stdexcept>
-#include <vector>
+#include "sycl_lz_stream.hpp"
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
-#include <oneapi/dnnl/dnnl_ocl.hpp>
+#    include <oneapi/dnnl/dnnl_sycl.hpp>
 #endif
 
 #define TRY_CATCH_CL_ERROR(...)               \
@@ -212,7 +214,7 @@ event::ptr gpu_usm::copy_to(stream& stream, void* data_ptr, size_t src_offset, s
 #ifdef ENABLE_ONEDNN_FOR_GPU
 dnnl::memory gpu_usm::get_onednn_memory(dnnl::memory::desc desc, int64_t offset) const {
     auto onednn_engine = _engine->get_onednn_engine();
-    dnnl::memory dnnl_mem = dnnl::ocl_interop::make_memory(desc, onednn_engine, dnnl::ocl_interop::memory_kind::usm,
+    dnnl::memory dnnl_mem = dnnl::sycl_interop::make_memory(desc, onednn_engine, dnnl::sycl_interop::memory_kind::usm,
         reinterpret_cast<uint8_t*>(_buffer.get()) + offset);
     return dnnl_mem;
 }
