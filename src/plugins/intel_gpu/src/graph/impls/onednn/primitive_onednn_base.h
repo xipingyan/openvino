@@ -531,6 +531,7 @@ protected:
         auto& stream = network.get_stream();
         auto net_id = network.get_id();
         event::ptr event;
+        GPU_DEBUG_LOG << "onednn kernel execute_impl: " << instance.id() << std::endl;
 
         if (_enable_profiling) {
             if (instance.can_be_optimized()) {

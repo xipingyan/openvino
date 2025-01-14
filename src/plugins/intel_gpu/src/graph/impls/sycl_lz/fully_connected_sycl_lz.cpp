@@ -218,8 +218,6 @@ protected:
         auto target_weights_layout = source_weights_layout;
         target_weights_layout.format = format::oiyx;
 
-        GPU_DEBUG_LOG << "Not Implemented. get_weights_reorder" << std::endl;
-
         return std::make_shared<WeightsReorderParams>(source_weights_layout, target_weights_layout);
     }
 

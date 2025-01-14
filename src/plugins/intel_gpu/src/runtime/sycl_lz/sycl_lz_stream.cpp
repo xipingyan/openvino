@@ -46,7 +46,9 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
 }
 
 void sycl_lz_stream::flush() const {
-    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::flush()" << std::endl;
+    // Issues all previously queued OpenCL commands in a command-queue to the device associated with the command-queue.
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::flush(), maybe sycl doesn't need it." << std::endl;
+    sycl_queue->wait();
 }
 
 void sycl_lz_stream::finish() const {
@@ -414,13 +416,10 @@ dnnl::stream& sycl_lz_stream::get_onednn_stream() {
     OPENVINO_ASSERT(_engine.get_device_info().vendor_id == INTEL_VENDOR_ID,
                     "[GPU] Can't create onednn stream handle as for non-Intel devices");
     if (!_onednn_stream) {
-        GPU_DEBUG_LOG << "Not implemented." << std::endl;
+        _onednn_stream =
+            std::make_shared<dnnl::stream>(dnnl::sycl_interop::make_stream(_engine.get_onednn_engine(), *sycl_queue));
 
-        _onednn_stream = std::make_shared<dnnl::stream>(
-            dnnl::sycl_interop::make_stream(_engine.get_onednn_engine(), *sycl_queue));
-
-        // auto r = dnnl_sycl_interop_stream_create(&_onednn_stream, _engine.get_onednn_engine(), &_command_queue);
-        // OPENVINO_ASSERT(r == dnnl_success, "[GPU] dnnl_sycl_interop_stream_create fail.");
+        GPU_DEBUG_LOG << "dnnl::sycl_interop::make_stream _onednn_stream = " << _onednn_stream << std::endl;
     }
     return *_onednn_stream;
 }

@@ -59,7 +59,7 @@ private:
     std::unique_ptr<stream> _service_stream;
 #ifdef ENABLE_ONEDNN_FOR_GPU
     std::mutex onednn_mutex;
-    std::shared_ptr<dnnl::engine> _onednn_engine;
+    std::shared_ptr<dnnl::engine> _onednn_engine = nullptr;
 #endif
 };
 

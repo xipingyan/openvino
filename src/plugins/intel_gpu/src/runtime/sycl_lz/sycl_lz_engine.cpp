@@ -210,8 +210,8 @@ stream& sycl_lz_engine::get_service_stream() const {
 }
 
 kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
-    GPU_DEBUG_LOG << "Not implemented. sycl_lz_engine::prepare_kernel" << std::endl;
-    // OPENVINO_ASSERT(downcast<const ocl::ocl_kernel>(kernel.get()) != nullptr);
+    GPU_DEBUG_LOG << "Temp implemented. sycl_lz_engine::prepare_kernel return kernel directly." << std::endl;
+    // OPENVINO_ASSERT(downcast<const cldnn::sycl_lz::sycl_lz_kernel*>(kernel.get()) != nullptr);
     return kernel;
 }
 
@@ -231,6 +231,7 @@ void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
         auto device = casted_dev->get_device();
         auto context = casted_dev->get_context();
         _onednn_engine = std::make_shared<dnnl::engine>(dnnl::sycl_interop::make_engine(device, context));
+        GPU_DEBUG_LOG << "_onednn_engine = " << _onednn_engine << std::endl;
     }
 }
 // Returns onednn engine object which shares device and context with current engine
@@ -238,8 +239,6 @@ dnnl::engine& sycl_lz_engine::get_onednn_engine() const {
     OPENVINO_ASSERT(_onednn_engine,
                     "[GPU] Can't get onednn engine handle as it was not initialized. Please check that "
                     "create_onednn_engine() was called");
-
-    GPU_DEBUG_LOG << "get_onednn_engine _onednn_engine = " << _onednn_engine << std::endl;
     return *_onednn_engine;
 }
 #endif

@@ -74,7 +74,7 @@ public:
         } else {
             ev.wait();
             sycl::half* dst_ptr_f16 = static_cast<sycl::half*>(dst_ptr);
-            GPU_DEBUG_LOG << "== dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
+            GPU_DEBUG_LOG << "  == host dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
                           << static_cast<float>(dst_ptr_f16[1]) << ", " << static_cast<float>(dst_ptr_f16[2]) << ", "
                           << static_cast<float>(dst_ptr_f16[3]) << std::endl;
         }
