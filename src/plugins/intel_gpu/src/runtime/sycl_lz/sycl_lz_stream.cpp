@@ -48,12 +48,15 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
 void sycl_lz_stream::flush() const {
     GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::flush()" << std::endl;
 }
+
 void sycl_lz_stream::finish() const {
-    GPU_DEBUG_LOG << "Temp implemented. sycl_queue->wait();" << std::endl;
+    GPU_DEBUG_LOG << "Temp implemented. sycl_queue.wait();" << std::endl;
     sycl_queue->wait();
 }
+
 void sycl_lz_stream::wait() {
-    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::wait()" << std::endl;
+    GPU_DEBUG_LOG << "Temp implemented. sycl_queue->wait();" << std::endl;
+    sycl_queue->wait();
 }
 
 cl_int set_kernel_arg_sycl_kernel(
@@ -412,6 +415,10 @@ dnnl::stream& sycl_lz_stream::get_onednn_stream() {
                     "[GPU] Can't create onednn stream handle as for non-Intel devices");
     if (!_onednn_stream) {
         GPU_DEBUG_LOG << "Not implemented." << std::endl;
+
+        _onednn_stream = std::make_shared<dnnl::stream>(
+            dnnl::sycl_interop::make_stream(_engine.get_onednn_engine(), *sycl_queue));
+
         // auto r = dnnl_sycl_interop_stream_create(&_onednn_stream, _engine.get_onednn_engine(), &_command_queue);
         // OPENVINO_ASSERT(r == dnnl_success, "[GPU] dnnl_sycl_interop_stream_create fail.");
     }

@@ -18,7 +18,7 @@ public:
     sycl_lz_stream(sycl_lz_stream&& other)
         : stream(other.m_queue_type, other.m_sync_method),
           _engine(other._engine),
-          _command_queue(other._command_queue),
+          sycl_queue(other.sycl_queue),
           _queue_counter(other._queue_counter.load()),
           _last_barrier(other._last_barrier.load()),
           _last_barrier_ev(other._last_barrier_ev) {}
@@ -51,13 +51,12 @@ public:
     dnnl::stream& get_onednn_stream() override;
 #endif
 
-    ::sycl::queue& get_sycl_queue() const;
+    sycl::queue& get_sycl_queue() const;
 
 private:
     void sync_events(std::vector<event::ptr> const& deps, bool is_output = false);
 
     const sycl_lz_engine& _engine;
-    sycl::queue _command_queue;
     std::atomic<uint64_t> _queue_counter{0};
     std::atomic<uint64_t> _last_barrier{0};
     sycl::event _last_barrier_ev;
@@ -66,7 +65,7 @@ private:
     std::shared_ptr<dnnl::stream> _onednn_stream = nullptr;
 #endif
 
-    std::unique_ptr<::sycl::queue> sycl_queue = nullptr;
+    std::shared_ptr<::sycl::queue> sycl_queue = nullptr;
 };
 
 }  // namespace sycl_lz
