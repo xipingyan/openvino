@@ -6,22 +6,26 @@
 
 #define ONEDNN_PRIMITIVE_SERIALIZATION
 
-#include "primitive_inst.h"
-#include "intel_gpu/graph/serialization/binary_buffer.hpp"
-#include "intel_gpu/runtime/memory.hpp"
-#include "intel_gpu/runtime/file_util.hpp"
-#include "to_string_utils.h"
-#include "utils.hpp"
-#include "runtime/ocl/ocl_event.hpp"
-
-#include "intel_gpu/primitives/reorder.hpp"
+#include <oneapi/dnnl/dnnl.hpp>
+#include <utility>
+#include <vector>
 
 #include "impls/ocl/kernel_selector_helper.h"
-
-#include <vector>
-#include <utility>
-
-#include <oneapi/dnnl/dnnl.hpp>
+#include "impls/registry/registry.hpp"
+#include "intel_gpu/graph/serialization/binary_buffer.hpp"
+#include "intel_gpu/primitives/reorder.hpp"
+#include "intel_gpu/runtime/file_util.hpp"
+#include "intel_gpu/runtime/memory.hpp"
+#include "primitive_inst.h"
+#include "runtime/ocl/ocl_event.hpp"
+#include "to_string_utils.h"
+#include "utils.hpp"
+#if OV_GPU_WITH_SYCL_LZ
+#    include "oneapi/dnnl/dnnl.hpp"
+#    include "oneapi/dnnl/dnnl_debug.h"
+#    include "oneapi/dnnl/dnnl_sycl.hpp"
+#    include "runtime/sycl_lz/sycl_lz_stream.hpp"
+#endif
 
 namespace cldnn {
 namespace onednn {
@@ -525,12 +529,16 @@ protected:
         _args[instance.get_network().get_id()] = get_arguments(instance, args);
     }
 
-    event::ptr execute_impl(const std::vector<event::ptr>& /* events */,
-                            typed_primitive_inst<PType>& instance) override {
+    event::ptr execute_impl(const std::vector<event::ptr>& events, typed_primitive_inst<PType>& instance) override {
         auto& network = instance.get_network();
         auto& stream = network.get_stream();
         auto net_id = network.get_id();
         event::ptr event;
+#if OV_GPU_WITH_SYCL_LZ
+        sycl::event sycl_event;
+        auto& sycl_lz_stream = downcast<sycl_lz::sycl_lz_stream>(stream);
+#endif
+        GPU_DEBUG_LOG << "onednn kernel execute_impl: " << instance.id() << std::endl;
 
         if (_enable_profiling) {
             if (instance.can_be_optimized()) {
@@ -542,32 +550,48 @@ protected:
 
         if (!instance.can_be_optimized()) {
             try {
+#if OV_GPU_WITH_SYCL_LZ
+                // stream.wait_for_events(events);
+                sycl_event = dnnl::sycl_interop::execute(_prim, stream.get_onednn_stream(), _args[net_id]);
+#else
                 _prim.execute(stream.get_onednn_stream(), _args[net_id]);
+#endif
             } catch (dnnl::error& err) {
                 auto err_code = err.status == dnnl_status_t::dnnl_out_of_memory ? CL_OUT_OF_RESOURCES : CL_INVALID_OPERATION;
                 ocl::rethrow_or_exit(err.what(), err_code, _engine->get_device_info());
             }
 
             if (_enable_profiling) {
+#if OV_GPU_WITH_SYCL_LZ
+                event = sycl_lz_stream.create_base_event(sycl_event);
+#else
                 // Call wait() function here instead of finish() to prevent cache flushing,
                 // this synchronization point is needed for correct OneDNN's profiling process
                 stream.wait();
 
-                std::vector<uint64_t> duration = dnnl::get_profiling_data(stream.get_onednn_stream(), dnnl::profiling_data_kind::time);
+                std::vector<uint64_t> duration =
+                    dnnl::get_profiling_data(stream.get_onednn_stream(), dnnl::profiling_data_kind::time);
                 if (duration.empty()) {
                     event = std::make_shared<ocl::ocl_event>(0);
                 } else {
-                    OPENVINO_ASSERT(duration.size() == 1, "[GPU] oneDNN profiling data is expected to have info only for single primitive ",
-                                                      "actual number is ", duration.size());
+                    OPENVINO_ASSERT(duration.size() == 1,
+                                    "[GPU] oneDNN profiling data is expected to have info only for single primitive ",
+                                    "actual number is ",
+                                    duration.size());
                     event = std::make_shared<ocl::ocl_event>(duration[0]);
                 }
-
+#endif
             } else {
+#if OV_GPU_WITH_SYCL_LZ
+                event = sycl_lz_stream.create_base_event(sycl_event);
+#else
                 // If oneDNN primitive is the output primitive or it's user is CPU implementation, then enqueue marker
                 // with empty events wait list (which will trigger wait for all previously enqueued tasks) and
                 // return it as oneDNN primitive's event as it is a single option for proper synchronization
-                if (instance.needs_completion_event())
+                if (instance.needs_completion_event()) {
                     event = stream.enqueue_marker({});
+                }
+#endif
             }
         }
 

@@ -11,7 +11,6 @@
 #include <array>
 #include <sycl/sycl.hpp>
 
-#include "sycl_lz_my_log.hpp"
 #include "intel_gpu/runtime/debug_configuration.hpp"
 
 namespace sycl_lz {
@@ -25,17 +24,23 @@ public:
                         size_t size,
                         cl_uint alignment,
                         cl_int* err_code_ret) const {
-        DEBUG_PRINT("sycl::malloc_host(" << size << ")");
+        GPU_DEBUG_LOG << "sycl::malloc_host(" << size << ")" << std::endl;
         return sycl::malloc_host(size, _ctx);
     }
 
-    void* allocate_shared(const cl_mem_properties_intel *properties, size_t size, cl_uint alignment, cl_int* err_code_ret) const {
-        DEBUG_PRINT("sycl::malloc_shared(" << size << ")");
+    void* allocate_shared(const cl_mem_properties_intel* properties,
+                          size_t size,
+                          cl_uint alignment,
+                          cl_int* err_code_ret) const {
+        GPU_DEBUG_LOG << "sycl::malloc_shared(" << size << ")" << std::endl;
         return sycl::malloc_shared(size, _device, _ctx);
     }
 
-    void* allocate_device(const cl_mem_properties_intel *properties, size_t size, cl_uint alignment, cl_int* err_code_ret) const {
-        DEBUG_PRINT("sycl::malloc_device(" << size << ")");
+    void* allocate_device(const cl_mem_properties_intel* properties,
+                          size_t size,
+                          cl_uint alignment,
+                          cl_int* err_code_ret) const {
+        GPU_DEBUG_LOG << "sycl::malloc_device(" << size << ")" << std::endl;
         return sycl::malloc_device(size, _device, _ctx);
     }
 
@@ -44,7 +49,7 @@ public:
     }
 
     cl_int set_kernel_arg_mem_pointer(const sycl::kernel& kernel, uint32_t index, const void* ptr) const {
-        DEBUG_PRINT("Not implemented.");
+        GPU_DEBUG_LOG << "Not implemented." << std::endl;
         return 0;
     }
 
@@ -55,7 +60,7 @@ public:
                           bool blocking = true,
                           const std::vector<sycl::event>* wait_list = nullptr,
                           sycl::event* ret_event = nullptr) const {
-        DEBUG_PRINT("Temp Solution, Copy device buffer to host. ");
+        GPU_DEBUG_LOG << "Temp Solution, Copy device buffer to host. " << std::endl;
 
         // cpp_queue.copy<void*>(src_ptr, dst_ptr, bytes_count);
         auto new_queue = cpp_queue;
@@ -69,7 +74,7 @@ public:
         } else {
             ev.wait();
             sycl::half* dst_ptr_f16 = static_cast<sycl::half*>(dst_ptr);
-            GPU_DEBUG_LOG << "== dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
+            GPU_DEBUG_LOG << "  == host dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
                           << static_cast<float>(dst_ptr_f16[1]) << ", " << static_cast<float>(dst_ptr_f16[2]) << ", "
                           << static_cast<float>(dst_ptr_f16[3]) << std::endl;
         }
@@ -83,7 +88,7 @@ public:
                             size_t bytes_count,
                             const std::vector<sycl::event>* wait_list = nullptr,
                             sycl::event* ret_event = nullptr) const {
-        DEBUG_PRINT("Not implemented.");
+        GPU_DEBUG_LOG << "Not implemented." << std::endl;
 
         return 0;
     }
@@ -94,7 +99,7 @@ public:
                            size_t bytes_count,
                            const std::vector<sycl::event>* wait_list = nullptr,
                            sycl::event* ret_event = nullptr) const {
-        DEBUG_PRINT("Not implemented.");
+        GPU_DEBUG_LOG << "Not implemented." << std::endl;
 
         return 0;
     }
@@ -104,7 +109,7 @@ public:
     }
 
     size_t get_usm_allocation_size(const void* usm_ptr) const {
-        DEBUG_PRINT("Not implemented.");
+        GPU_DEBUG_LOG << "Not implemented." << std::endl;
         return 0;
     }
 
@@ -230,7 +235,7 @@ public:
     }
 
     cl_int setArgUsm(cl_uint index, const UsmMemory& mem) {
-        DEBUG_PRINT("Not implemented. Maybe not need for sycl kernel");
+        GPU_DEBUG_LOG << "Not implemented. Maybe not need for sycl kernel" << std::endl;
         // return detail::errHandler(_usmHelper.set_kernel_arg_mem_pointer(*this, index, mem.get()), "[CL_EXT] setArgUsm in KernelIntel failed");
         return 0;
     }

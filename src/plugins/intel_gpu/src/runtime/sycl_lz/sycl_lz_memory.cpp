@@ -2,19 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "sycl_lz_memory.hpp"
+
+#include <stdexcept>
+#include <vector>
+
 #include "intel_gpu/runtime/debug_configuration.hpp"
 #include "intel_gpu/runtime/error_handler.hpp"
 #include "intel_gpu/runtime/memory.hpp"
 #include "intel_gpu/runtime/utils.hpp"
-#include "sycl_lz_memory.hpp"
 #include "sycl_lz_engine.hpp"
-#include "sycl_lz_stream.hpp"
 #include "sycl_lz_event.hpp"
-#include <stdexcept>
-#include <vector>
+#include "sycl_lz_stream.hpp"
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
-#include <oneapi/dnnl/dnnl_ocl.hpp>
+#    include <oneapi/dnnl/dnnl_sycl.hpp>
 #endif
 
 #define TRY_CATCH_CL_ERROR(...)               \
@@ -80,7 +82,6 @@ void* gpu_usm::lock(const stream& stream, mem_lock_type type) {
             }
             GPU_DEBUG_LOG << "Copy usm_device buffer to host buffer." << std::endl;
 
-            // DEBUG_PRINT("Not implemented. _host_buffer.allocateHost(_bytes_count);");
             _host_buffer.allocateHost(_bytes_count);
             try {
                 const sycl_lz_stream& sycllz_stream = downcast<const sycl_lz_stream>(stream);
@@ -118,7 +119,7 @@ event::ptr gpu_usm::fill(stream& stream, unsigned char pattern, bool blocking) {
         GPU_DEBUG_TRACE_DETAIL << "Skip gpu_usm::fill for 0 size tensor" << std::endl;
         return nullptr;
     }
-    DEBUG_PRINT("Not implemented. _bytes_count = " << _bytes_count);
+    GPU_DEBUG_LOG << "Not implemented. _bytes_count = " << _bytes_count << std::endl;
     return nullptr;
     // auto& cl_stream = downcast<sycl_lz_stream>(stream);
     // auto ev = stream.create_base_event();
@@ -141,7 +142,7 @@ event::ptr gpu_usm::fill(stream& stream, bool blocking) {
 }
 
 event::ptr gpu_usm::copy_from(stream& stream, const void* data_ptr, size_t src_offset, size_t dst_offset, size_t size, bool blocking) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 
     // auto result_event = create_event(stream, size, blocking);
@@ -159,7 +160,7 @@ event::ptr gpu_usm::copy_from(stream& stream, const void* data_ptr, size_t src_o
 }
 
 event::ptr gpu_usm::copy_from(stream& stream, const memory& src_mem, size_t src_offset, size_t dst_offset, size_t size, bool blocking) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 
     // auto result_event = create_event(stream, size, blocking);
@@ -212,27 +213,27 @@ event::ptr gpu_usm::copy_to(stream& stream, void* data_ptr, size_t src_offset, s
 #ifdef ENABLE_ONEDNN_FOR_GPU
 dnnl::memory gpu_usm::get_onednn_memory(dnnl::memory::desc desc, int64_t offset) const {
     auto onednn_engine = _engine->get_onednn_engine();
-    dnnl::memory dnnl_mem = dnnl::ocl_interop::make_memory(desc, onednn_engine, dnnl::ocl_interop::memory_kind::usm,
+    dnnl::memory dnnl_mem = dnnl::sycl_interop::make_memory(desc, onednn_engine, dnnl::sycl_interop::memory_kind::usm,
         reinterpret_cast<uint8_t*>(_buffer.get()) + offset);
     return dnnl_mem;
 }
 #endif
 
 shared_mem_params gpu_usm::get_internal_params() const {
-    auto cl_engine = downcast<const sycl_lz_engine>(_engine);
-//     return {
-//         shared_mem_type::shared_mem_usm,  // shared_mem_type
-//         static_cast<shared_handle>(cl_engine->get_cl_context().get()),  // context handle
-//         nullptr,        // user_device handle
-//         _buffer.get(),  // mem handle
-// #ifdef _WIN32
-//         nullptr,  // surface handle
-// #else
-//         0,  // surface handle
-// #endif
-//         0  // plane
-//     };
-
+    //     auto cl_engine = downcast<const sycl_lz_engine>(_engine);
+    //     return {
+    //         shared_mem_type::shared_mem_usm,  // shared_mem_type
+    //         static_cast<shared_handle>(cl_engine->get_cl_context().get()),  // context handle
+    //         nullptr,        // user_device handle
+    //         _buffer.get(),  // mem handle
+    // #ifdef _WIN32
+    //         nullptr,  // surface handle
+    // #else
+    //         0,  // surface handle
+    // #endif
+    //         0  // plane
+    //     };
+    GPU_DEBUG_LOG << "Temp implementation. Pass null context." << std::endl;
     return {
         shared_mem_type::shared_mem_usm,  // shared_mem_type
         static_cast<shared_handle>(nullptr),  // context handle

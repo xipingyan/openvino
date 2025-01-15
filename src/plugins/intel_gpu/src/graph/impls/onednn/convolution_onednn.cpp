@@ -370,6 +370,7 @@ public:
 
 std::unique_ptr<primitive_impl> ConvolutionImplementationManager::create_impl(const program_node& node, const kernel_impl_params& params) const {
     assert(node.is_type<convolution>());
+    GPU_DEBUG_LOG << "ConvolutionImplementationManager::create_impl" << std::endl;
     return convolution_onednn::create(static_cast<const convolution_node&>(node), params);
 }
 

@@ -21,9 +21,7 @@ sycl_lz_engine::sycl_lz_engine(const device::ptr dev, runtime_types runtime_type
 
     auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
     auto device = casted_dev->get_device();
-
-    // _queue = cldnn::make_unique<sycl::queue>(device);
-    sycl_context = cldnn::make_unique<::sycl::context>(device); // "MAYBE NOT NEED. sycl_context"
+    sycl_context = cldnn::make_unique<::sycl::context>(device);
 }
 
 stream::ptr sycl_lz_engine::create_stream(const ExecutionConfig& config) const {
@@ -85,7 +83,7 @@ memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type
     }
 }
 memory_ptr sycl_lz_engine::reinterpret_handle(const layout& new_layout, shared_mem_params params) {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
 }
 memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout& new_layout) {
@@ -96,7 +94,7 @@ memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout
 
     try {
         if (new_layout.format.is_image_2d()) {
-            DEBUG_PRINT("Not implemented.");
+            GPU_DEBUG_LOG << "Not implemented." << std::endl;
             return nullptr;
             // return std::make_shared<ocl::gpu_image2d>(this,
             //                                           new_layout,
@@ -109,7 +107,7 @@ memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout
                                                       memory.get_allocation_type(),
                                                       memory.get_mem_tracker());
         } else {
-            DEBUG_PRINT("Not implemented.");
+            GPU_DEBUG_LOG << "Not implemented." << std::endl;
             return nullptr;
             // return std::make_shared<ocl::gpu_buffer>(this,
             //                                          new_layout,
@@ -132,7 +130,7 @@ bool sycl_lz_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) 
         return true;
 
     if (!memory_capabilities::is_usm_type(mem1.get_allocation_type())) {
-        DEBUG_PRINT("Not implemented. sycl_lz_engine::is_the_same_buffer");
+        GPU_DEBUG_LOG << "Not implemented. sycl_lz_engine::is_the_same_buffer" << std::endl;
         // return (reinterpret_cast<const sycl_lz::gpu_buffer&>(mem1).get_buffer() ==
         //         reinterpret_cast<const sycl_lz::gpu_buffer&>(mem2).get_buffer());
     } else {
@@ -192,7 +190,7 @@ bool sycl_lz_engine::check_allocatable(const layout& layout, allocation_type typ
 }
 
 void* sycl_lz_engine::get_user_context() const {
-    DEBUG_PRINT("Not implemented. sycl_lz_engine::get_user_context()");
+    GPU_DEBUG_LOG << "Not implemented. sycl_lz_engine::get_user_context()" << std::endl;
 
     return nullptr;
 }
@@ -203,7 +201,7 @@ allocation_type sycl_lz_engine::detect_usm_allocation_type(const void* memory) c
 }
 
 bool sycl_lz_engine::extension_supported(std::string extension) const {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return false;
 }
 
@@ -212,14 +210,14 @@ stream& sycl_lz_engine::get_service_stream() const {
 }
 
 kernel::ptr sycl_lz_engine::prepare_kernel(const kernel::ptr kernel) const {
-    DEBUG_PRINT("Not implemented. sycl_lz_engine::prepare_kernel");
-    // OPENVINO_ASSERT(downcast<const ocl::ocl_kernel>(kernel.get()) != nullptr);
+    GPU_DEBUG_LOG << "Temp implemented. sycl_lz_engine::prepare_kernel return kernel directly." << std::endl;
+    // OPENVINO_ASSERT(downcast<const cldnn::sycl_lz::sycl_lz_kernel*>(kernel.get()) != nullptr);
     return kernel;
 }
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
 void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
-    DEBUG_PRINT("Not implemented.");
+    GPU_DEBUG_LOG << "Temp implemented. create_onednn_engine" << std::endl;
     const std::lock_guard<std::mutex> lock(onednn_mutex);
     OPENVINO_ASSERT(_device->get_info().vendor_id == INTEL_VENDOR_ID, "[GPU] OneDNN engine can be used for Intel GPUs only");
 
@@ -231,7 +229,9 @@ void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
 
         auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
         auto device = casted_dev->get_device();
-        _onednn_engine = std::make_shared<dnnl::engine>(dnnl::sycl_interop::make_engine(device, *sycl_context));
+        auto context = casted_dev->get_context();
+        _onednn_engine = std::make_shared<dnnl::engine>(dnnl::sycl_interop::make_engine(device, context));
+        GPU_DEBUG_LOG << "_onednn_engine = " << _onednn_engine << std::endl;
     }
 }
 // Returns onednn engine object which shares device and context with current engine
