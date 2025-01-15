@@ -220,20 +220,20 @@ dnnl::memory gpu_usm::get_onednn_memory(dnnl::memory::desc desc, int64_t offset)
 #endif
 
 shared_mem_params gpu_usm::get_internal_params() const {
-    auto cl_engine = downcast<const sycl_lz_engine>(_engine);
-//     return {
-//         shared_mem_type::shared_mem_usm,  // shared_mem_type
-//         static_cast<shared_handle>(cl_engine->get_cl_context().get()),  // context handle
-//         nullptr,        // user_device handle
-//         _buffer.get(),  // mem handle
-// #ifdef _WIN32
-//         nullptr,  // surface handle
-// #else
-//         0,  // surface handle
-// #endif
-//         0  // plane
-//     };
-
+    //     auto cl_engine = downcast<const sycl_lz_engine>(_engine);
+    //     return {
+    //         shared_mem_type::shared_mem_usm,  // shared_mem_type
+    //         static_cast<shared_handle>(cl_engine->get_cl_context().get()),  // context handle
+    //         nullptr,        // user_device handle
+    //         _buffer.get(),  // mem handle
+    // #ifdef _WIN32
+    //         nullptr,  // surface handle
+    // #else
+    //         0,  // surface handle
+    // #endif
+    //         0  // plane
+    //     };
+    GPU_DEBUG_LOG << "Temp implementation. Pass null context." << std::endl;
     return {
         shared_mem_type::shared_mem_usm,  // shared_mem_type
         static_cast<shared_handle>(nullptr),  // context handle

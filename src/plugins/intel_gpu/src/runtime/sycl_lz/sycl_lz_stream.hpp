@@ -64,6 +64,9 @@ private:
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
     std::shared_ptr<dnnl::stream> _onednn_stream = nullptr;
+    sycl::property_list _prop{sycl::property::queue::in_order()};
+#else
+    sycl::property_list _prop{};
 #endif
 };
 

@@ -26,7 +26,7 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
     auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
     OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
 
-    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_context(), dev->get_device());
+    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_context(), dev->get_device(), _prop);
     GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 
@@ -36,7 +36,7 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
     auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
     OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
 
-    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_context(), dev->get_device());
+    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_context(), dev->get_device(), _prop);
     GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 
