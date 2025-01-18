@@ -158,6 +158,7 @@ std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args
                 inputs_args.push_back(sycl_args{scalar});
                 GPU_DEBUG_LOG << " == Temp implemented. args_t::SCALAR" << kernel_id << ", scalar=" << scalar
                               << std::endl;
+                status = CL_SUCCESS;
             }
             break;
         case args_t::CELL:
@@ -171,7 +172,7 @@ std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args
         }
 
         if (status != CL_SUCCESS) {
-            throw std::runtime_error("Error set arg " + std::to_string(i) + ", kernel_id: " + kernel_id +
+            throw std::runtime_error("Error sycl set arg " + std::to_string(i) + ", kernel_id: " + kernel_id +
                                      ", error code: " + std::to_string(status) + "\n");
         }
     }
