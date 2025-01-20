@@ -52,6 +52,45 @@ struct scalar_desc {
 
 using scalars_desc = std::vector<scalar_desc>;
 
+inline std::ostream& operator<<(std::ostream& os, const scalar_desc& sd) {
+    os << "scalar_desc(t = ";
+    switch (sd.t) {
+    case scalar_desc::Types::UINT8:
+        os << "UINT8, sd.v = " << sd.v.u8 << ")";
+        break;
+    case scalar_desc::Types::UINT16:
+        os << "UINT16, sd.v = " << sd.v.u16 << ")";
+        break;
+    case scalar_desc::Types::UINT32:
+        os << "UINT32, sd.v = " << sd.v.u32 << ")";
+        break;
+    case scalar_desc::Types::UINT64:
+        os << "UINT64, sd.v = " << sd.v.u64 << ")";
+        break;
+    case scalar_desc::Types::INT8:
+        os << "INT8, sd.v = " << sd.v.s8 << ")";
+        break;
+    case scalar_desc::Types::INT16:
+        os << "INT16, sd.v = " << sd.v.s16 << ")";
+        break;
+    case scalar_desc::Types::INT32:
+        os << "INT32, sd.v = " << sd.v.s32 << ")";
+        break;
+    case scalar_desc::Types::INT64:
+        os << "INT64, sd.v = " << sd.v.s64 << ")";
+        break;
+    case scalar_desc::Types::FLOAT32:
+        os << "FLOAT32, sd.v = " << sd.v.f32 << ")";
+        break;
+    case scalar_desc::Types::FLOAT64:
+        os << "FLOAT64, sd.v = " << sd.v.f64 << ")";
+        break;
+    default:
+        os << "Unknow)";
+        break;
+    }
+    return os;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ArgumentDescpirtor
