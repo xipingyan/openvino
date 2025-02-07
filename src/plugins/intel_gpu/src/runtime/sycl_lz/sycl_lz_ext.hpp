@@ -73,10 +73,10 @@ public:
             *ret_event = ev;
         } else {
             ev.wait();
-            sycl::half* dst_ptr_f16 = static_cast<sycl::half*>(dst_ptr);
-            GPU_DEBUG_LOG << "  == host dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
-                          << static_cast<float>(dst_ptr_f16[1]) << ", " << static_cast<float>(dst_ptr_f16[2]) << ", "
-                          << static_cast<float>(dst_ptr_f16[3]) << std::endl;
+            // sycl::half* dst_ptr_f16 = static_cast<sycl::half*>(dst_ptr);
+            // GPU_DEBUG_LOG << "  == host dst_ptr[0:3]=" << static_cast<float>(dst_ptr_f16[0]) << ", "
+            //               << static_cast<float>(dst_ptr_f16[1]) << ", " << static_cast<float>(dst_ptr_f16[2]) << ", "
+            //               << static_cast<float>(dst_ptr_f16[3]) << std::endl;
         }
         return 0;
     }
@@ -88,8 +88,17 @@ public:
                             size_t bytes_count,
                             const std::vector<sycl::event>* wait_list = nullptr,
                             sycl::event* ret_event = nullptr) const {
-        GPU_DEBUG_LOG << "Not implemented." << std::endl;
+        GPU_DEBUG_LOG << "Temp Solution, fill memory. " << std::endl;
+        auto new_queue = cpp_queue;
+        auto ev = new_queue.submit([&](sycl::handler& cgh) {
+            cgh.memcpy(dst_ptr, pattern, bytes_count);
+        });
 
+        if (ret_event) {
+            *ret_event = ev;
+        } else {
+            ev.wait();
+        }
         return 0;
     }
 
