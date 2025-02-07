@@ -17,11 +17,12 @@ namespace sycl_lz {
 sycl_lz_engine::sycl_lz_engine(const device::ptr dev, runtime_types runtime_type)
 : engine(dev) {
     GPU_DEBUG_INFO << "create sycl_lz_engine" << std::endl;
-    // : ocl_engine(dev, runtime_type) {
 
     auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
     auto device = casted_dev->get_device();
     sycl_context = cldnn::make_unique<::sycl::context>(device);
+
+    _service_stream.reset(new sycl_lz_stream(*this, ExecutionConfig()));
 }
 
 stream::ptr sycl_lz_engine::create_stream(const ExecutionConfig& config) const {
