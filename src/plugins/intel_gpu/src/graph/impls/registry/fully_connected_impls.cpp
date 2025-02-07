@@ -22,8 +22,8 @@ using namespace cldnn;
 
 const std::vector<std::shared_ptr<cldnn::ImplementationManager>>& Registry<fully_connected>::get_implementations() {
     static const std::vector<std::shared_ptr<ImplementationManager>> impls = {
-        OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::FullyConnectedImplementationManager, shape_types::static_shape)
-        OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::FullyConnectedImplementationManager, shape_types::dynamic_shape)
+        // OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::FullyConnectedImplementationManager, shape_types::static_shape)
+        // OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::FullyConnectedImplementationManager, shape_types::dynamic_shape)
         OV_GPU_CREATE_INSTANCE_ONEDNN(onednn::FullyConnectedImplementationManager, shape_types::static_shape)
         OV_GPU_GET_INSTANCE_OCL(fully_connected, shape_types::static_shape)
         OV_GPU_GET_INSTANCE_OCL(fully_connected, shape_types::dynamic_shape,
