@@ -88,11 +88,32 @@ public:
                             size_t bytes_count,
                             const std::vector<sycl::event>* wait_list = nullptr,
                             sycl::event* ret_event = nullptr) const {
-        GPU_DEBUG_LOG << "Temp Solution, fill memory. " << std::endl;
         auto new_queue = cpp_queue;
-        auto ev = new_queue.submit([&](sycl::handler& cgh) {
-            cgh.memcpy(dst_ptr, pattern, bytes_count);
-        });
+        OPENVINO_ASSERT(pattern_size == 1u, "Only support: pattern_size == 1.");
+        OPENVINO_ASSERT(wait_list == nullptr, "Only support: wait_list == nullptr");
+        const char pattern_value = *reinterpret_cast<const char*>(pattern);
+
+        GPU_DEBUG_LOG << "Temp Solution, replace fill with memcpy, fill memory: pattern=" << pattern_value << ", pattern_size=" << pattern_size
+                      << ", bytes_count=" << bytes_count << std::endl;
+
+        /* Next codes will trigger exception: "No kernel named  was found".
+            I don't why my unit test work for next codes. Strange!!!
+         */
+        // auto ev = new_queue.fill(dst_ptr, pattern_value, bytes_count);
+        // auto ev = new_queue.submit([&](sycl::handler& cgh) {
+        //     cgh.fill(dst_ptr, pattern_value, bytes_count);
+        // });
+
+        // Replace fill with memcpy. Temp solution.
+        void* tmp_buf = malloc(bytes_count);
+        memset(tmp_buf, 0, bytes_count);
+        new_queue
+            .submit([&](sycl::handler& cgh) {
+                cgh.memcpy(dst_ptr, tmp_buf, bytes_count);
+            })
+            .wait();
+        free(tmp_buf);
+        sycl::event ev;
 
         if (ret_event) {
             *ret_event = ev;
@@ -109,7 +130,6 @@ public:
                            const std::vector<sycl::event>* wait_list = nullptr,
                            sycl::event* ret_event = nullptr) const {
         GPU_DEBUG_LOG << "Not implemented." << std::endl;
-
         return 0;
     }
 
