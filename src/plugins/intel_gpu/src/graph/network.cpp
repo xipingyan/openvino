@@ -747,7 +747,7 @@ void network::execute_impl(const std::vector<event::ptr>& events) {
         NODE_DEBUG(*inst);
         {
             GPU_DEBUG_LOG << "== Run inst: " << inst->id() << " =================== " << std::endl;
-            auto my_profiler = MY_PROFILE(inst->id());
+            // auto my_profiler = MY_PROFILE(inst->id());
 
             inst->reset_events();
 
