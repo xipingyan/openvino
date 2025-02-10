@@ -134,7 +134,7 @@ event::ptr gpu_usm::fill(stream& stream, unsigned char pattern, bool blocking) {
             ev_sycl.wait();
         }
     } catch (sycl::exception const& err) {
-        OPENVINO_THROW("[GPU] enqueue_memcpy failed: ", err.what());
+        OPENVINO_THROW("[GPU] enqueue_fill_mem failed: ", err.what());
     }
 
     return sycllz_stream.create_base_event(ev_sycl);
