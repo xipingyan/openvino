@@ -33,7 +33,8 @@ private:
     std::vector<std::string> get_kernel_id_from_source(const std::string& sources);
 
     std::vector<std::pair<std::string, kernel::ptr>> build_sycl_lz_kernel(const std::string& sources,
-                                                                          const std::vector<std::string>& entry_point);
+                                                                          const std::vector<std::string>& entry_point,
+                                                                          const std::string& options);
 
 public:
     explicit sycl_lz_kernels_cache(engine& engine,
