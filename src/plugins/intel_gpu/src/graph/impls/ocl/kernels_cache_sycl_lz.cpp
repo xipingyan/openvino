@@ -4,6 +4,7 @@
 
 #include "kernels_cache_sycl_lz.hpp"
 
+#include <bits/stdc++.h>
 #include <sycl/ext/oneapi/backend/level_zero.hpp>
 
 #include "intel_gpu/graph/program.hpp"
@@ -99,16 +100,26 @@ std::vector<std::string> sycl_lz_kernels_cache::get_kernel_id_from_source(const 
 
 std::vector<std::pair<std::string, kernel::ptr>> sycl_lz_kernels_cache::build_sycl_lz_kernel(
     const std::string& sources,
-    const std::vector<std::string>& entry_points) {
-    GPU_DEBUG_LOG << "== Build OpenCL kernel based on SYCL runtime." << std::endl;
+    const std::vector<std::string>& entry_points,
+    const std::string& options) {
+    GPU_DEBUG_LOG << "== Build OpenCL kernel based on SYCL runtime. options=\"" << options << "\"" << std::endl;
     auto& sycl_lz_device = dynamic_cast<const sycl_lz::sycl_lz_device&>(*_device);
     auto sycl_context = sycl_lz_device.get_context();
 
     sycl::kernel_bundle<sycl::bundle_state::ext_oneapi_source> kb_src =
         syclex::create_kernel_bundle_from_source(sycl_context, syclex::source_language::opencl, sources);
 
+    // options to vector
+    std::vector<std::string> option_flags;
+    std::stringstream ss(options.c_str());
+    std::string t;
+    while (std::getline(ss, t, ' ')) {
+        option_flags.push_back(t);
+    }
+
     // Compile and link the kernel from the source definition.
-    sycl::kernel_bundle<sycl::bundle_state::executable> kb_exe = syclex::build(kb_src);
+    sycl::kernel_bundle<sycl::bundle_state::executable> kb_exe =
+        syclex::build(kb_src, syclex::properties{syclex::build_options{option_flags}});
 
     // Get a "kernel" object representing the kernel defined in the
     // source string.
@@ -240,7 +251,7 @@ void sycl_lz_kernels_cache::build_batch(const batch_program& batch, compiled_ker
             std::lock_guard<std::mutex> lock(_mutex);
             {
                 auto entry_points = get_kernel_id_from_source(sources);
-                auto kernels = build_sycl_lz_kernel(sources, entry_points);
+                auto kernels = build_sycl_lz_kernel(sources, entry_points, batch.options);
                 for (auto& kernel : kernels) {
                     GPU_DEBUG_LOG << "Find entry_point from sources: " << kernel.first << std::endl;
                     const auto& iter = batch.entry_point_to_id.find(kernel.first);

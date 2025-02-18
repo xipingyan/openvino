@@ -72,6 +72,7 @@ memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type
         }
 
         if (reset || res->is_memory_reset_needed(layout)) {
+            GPU_DEBUG_LOG << "Need to reset usm memory via res->fill." << std::endl;
             auto ev = res->fill(get_service_stream());
             if (ev) {
                 get_service_stream().wait_for_events({ev});

@@ -54,15 +54,12 @@ void sycl_lz_event::set_sycl_lz_callback() {
 }
 
 void sycl_lz_event::wait_impl() {
-    GPU_DEBUG_LOG << "Not implemented. wait_impl" << std::endl;
-
-    // if (_event.get() != nullptr) {
-    //     try {
-    //         _event.wait();
-    //     } catch (cl::Error const& err) {
-    //         OPENVINO_THROW(OCL_ERR_MSG_FMT(err));
-    //     }
-    // }
+    try {
+        GPU_DEBUG_LOG << "call sycl::event::wait" << std::endl;
+        _event.wait();
+    } catch (sycl::exception const& err) {
+        OPENVINO_THROW("[GPU] sycl::event::wait fail:", err.what());
+    }
 }
 
 void sycl_lz_event::set_impl() {
@@ -70,15 +67,12 @@ void sycl_lz_event::set_impl() {
 }
 
 bool sycl_lz_event::is_set_impl() {
-    GPU_DEBUG_LOG << "Not implemented. is_set_impl" << std::endl;
-    // try {
-    //     if (_event.get() != nullptr) {
-    //         return _event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() == CL_COMPLETE;
-    //     }
-    // } catch (cl::Error const& err) {
-    //     OPENVINO_THROW(OCL_ERR_MSG_FMT(err));
-    // }
-    return true;
+    try {
+        return _event.get_info<sycl::info::event::command_execution_status>() ==
+               sycl::info::event_command_status::complete;
+    } catch (sycl::exception const& err) {
+        OPENVINO_THROW("[GPU] sycl::event::get_info fail:", err.what());
+    }
 }
 
 bool sycl_lz_event::add_event_handler_impl(event_handler, void*) {
