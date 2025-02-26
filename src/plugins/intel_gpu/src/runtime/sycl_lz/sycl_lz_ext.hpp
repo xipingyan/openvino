@@ -103,17 +103,18 @@ public:
         // auto ev = new_queue.submit([&](sycl::handler& cgh) {
         //     cgh.fill(dst_ptr, pattern_value, bytes_count);
         // });
+        sycl::event ev = new_queue.fill(dst_ptr, pattern, bytes_count);
 
-        // Replace fill with memcpy. Temp solution.
-        void* tmp_buf = malloc(bytes_count);
-        memset(tmp_buf, 0, bytes_count);
-        new_queue
-            .submit([&](sycl::handler& cgh) {
-                cgh.memcpy(dst_ptr, tmp_buf, bytes_count);
-            })
-            .wait();
-        free(tmp_buf);
-        sycl::event ev;
+        // // Replace fill with memcpy. Temp solution.
+        // void* tmp_buf = malloc(bytes_count);
+        // memset(tmp_buf, 0, bytes_count);
+        // new_queue
+        //     .submit([&](sycl::handler& cgh) {
+        //         cgh.memcpy(dst_ptr, tmp_buf, bytes_count);
+        //     })
+        //     .wait();
+        // free(tmp_buf);
+        // sycl::event ev;
 
         if (ret_event) {
             *ret_event = ev;
