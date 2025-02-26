@@ -79,8 +79,7 @@ cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
         // inputs_args.push_back({params_buf, is_output});
         return CL_SUCCESS;
     } else if (memory_capabilities::is_usm_type(mem->get_allocation_type())) {
-        sycl::buffer params_buf(static_cast<uint8_t*>(mem->buffer_ptr()), sycl::range{mem->size()});
-        inputs_args.push_back(sycl_args{params_buf, is_output});
+        inputs_args.push_back(sycl_args{mem->buffer_ptr(), is_output});
         return CL_SUCCESS;
     } else {
         auto buf = std::dynamic_pointer_cast<const ocl::gpu_buffer>(mem)->get_buffer();
@@ -291,13 +290,7 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
         for (size_t i = 0; i < inputs_args.size(); i++) {
             auto& cur_buf = inputs_args[i];
             if (cur_buf._isBuf) {
-                if (cur_buf._isOutput) {
-                    sycl::accessor acc_param{cur_buf._buf, cgh, sycl::read_write};
-                    cgh.set_arg(i, acc_param);
-                } else {
-                    sycl::accessor acc_param{cur_buf._buf, cgh, sycl::read_only};
-                    cgh.set_arg(i, acc_param);
-                }
+                cgh.set_arg(i, cur_buf._buf);
             } else {
                 // Scalar params
                 set_args_scalar(cgh, i, cur_buf._scalar);
