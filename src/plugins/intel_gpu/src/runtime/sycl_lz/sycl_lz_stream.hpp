@@ -72,17 +72,14 @@ private:
 
 struct sycl_args {
     sycl_args() = delete;
-    sycl_args(sycl::buffer<uint8_t, 1, sycl::image_allocator, void> buf, bool isOutput)
-        : _isBuf(true),
-          _isOutput(isOutput),
-          _buf(buf) {
+    sycl_args(void* buf, bool isOutput) : _isBuf(true), _isOutput(isOutput), _buf(buf) {
         _scalar.t = cldnn::scalar_desc::Types::UINT8;
         _scalar.v.u8 = 0;
     }
-    sycl_args(scalar_desc scalar) : _isBuf(false), _buf(0, 1), _scalar(scalar) {}
+    sycl_args(scalar_desc scalar) : _isBuf(false), _buf(nullptr), _scalar(scalar) {}
     bool _isBuf;
     bool _isOutput = false;
-    sycl::buffer<uint8_t, 1, sycl::image_allocator, void> _buf;
+    void* _buf;
     scalar_desc _scalar;
 };
 
