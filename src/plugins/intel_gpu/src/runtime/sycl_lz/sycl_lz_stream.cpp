@@ -237,14 +237,14 @@ void sycl_lz_stream::set_arguments(kernel& kernel,
 
 inline sycl::range<3> toSyclRange(const std::vector<size_t>& v) {
     switch (v.size()) {
-        case 1:
-            return sycl::range(v[0], 1, 1);
-        case 2:
-            return sycl::range(v[1], v[0], 1);
-        case 3:
-            return sycl::range(v[2], v[1], v[0]);
-        default:
-            return sycl::range{1, 1, 1};
+    case 1:
+        return sycl::range(1, 1, v[0]);
+    case 2:
+        return sycl::range(1, v[1], v[0]);
+    case 3:
+        return sycl::range(v[2], v[1], v[0]);
+    default:
+        return sycl::range{1, 1, 1};
     }
 }
 
