@@ -328,10 +328,10 @@ device_info init_device_info(const sycl::device& device) {
     // Not implemented[SYCL_RUNTIME].
     info.gfx_ver = {0, 0, 0};
     info.device_id = driver_dev_id();
-    info.num_slices = 0;
-    info.num_sub_slices_per_slice = 0;
-    info.num_eus_per_sub_slice = 0;
-    info.num_threads_per_eu = 0;
+    // info.num_slices = 0;
+    // info.num_sub_slices_per_slice = 0;
+    // info.num_eus_per_sub_slice = 0;
+    // info.num_threads_per_eu = 0;
     // }
 
     info.num_ccs = 1;

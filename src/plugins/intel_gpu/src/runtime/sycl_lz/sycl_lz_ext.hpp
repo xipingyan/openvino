@@ -104,7 +104,8 @@ public:
         //     cgh.fill(dst_ptr, pattern_value, bytes_count);
         // });
 
-        // Replace fill with memcpy. Temp solution.
+        // Replace fill with memcpy. Temp solution. Do nothing.
+#if 0
         void* tmp_buf = malloc(bytes_count);
         memset(tmp_buf, 0, bytes_count);
         new_queue
@@ -113,8 +114,8 @@ public:
             })
             .wait();
         free(tmp_buf);
+#endif
         sycl::event ev;
-
         if (ret_event) {
             *ret_event = ev;
         } else {

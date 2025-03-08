@@ -80,6 +80,9 @@ cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
         return CL_SUCCESS;
     } else if (memory_capabilities::is_usm_type(mem->get_allocation_type())) {
         inputs_args.push_back(sycl_args{mem->buffer_ptr(), is_output});
+        auto mem_type = std::dynamic_pointer_cast<const sycl_lz::gpu_usm>(mem)->get_allocation_type();
+        GPU_DEBUG_LOG << " mem_type = " << mem_type << " mem: " << mem->buffer_ptr() << " size: " << mem->size()
+                      << std::endl;
         return CL_SUCCESS;
     } else {
         auto buf = std::dynamic_pointer_cast<const ocl::gpu_buffer>(mem)->get_buffer();
@@ -99,7 +102,6 @@ std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args
                                                       const kernel_arguments_data& data,
                                                       const std::string& kernel_id) {
     using args_t = argument_desc::Types;
-    using scalar_t = scalar_desc::Types;
 
     static std::mutex m;
     std::lock_guard<std::mutex> guard(m);
@@ -258,8 +260,29 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
 
     auto& kern = sycl_kernel.get_handle();
 
-    sycl::nd_range ndr =
-        sycl::nd_range{toSyclRange(args_desc.workGroups.global), toSyclRange(args_desc.workGroups.local)};
+    // Update local
+#if 0
+    std::vector<size_t> local(args_desc.workGroups.local.size());
+    std::vector<size_t> global(args_desc.workGroups.global.size());
+    for (size_t i = 0; i < args_desc.workGroups.local.size(); i++) {
+        if (args_desc.workGroups.local[i] > 1 && args_desc.workGroups.local[i] % 2 == 1) {
+            for (size_t j = 1;; j++) {
+                if (args_desc.workGroups.local[i] > pow(2, j)) {
+                    local[i] = pow(2, j + 1);
+                    global[i] = args_desc.workGroups.global[i] / args_desc.workGroups.local[i] * local[i];
+                    break;
+                }
+            }
+        } else {
+            local[i] = args_desc.workGroups.local[i];
+            global[i] = args_desc.workGroups.global[i];
+        }
+    }
+    sycl::nd_range ndr = sycl::nd_range{toSyclRange(global), toSyclRange(local)};
+#else
+    sycl::nd_range ndr = sycl::nd_range{toSyclRange(args_desc.workGroups.global), toSyclRange(args_desc.workGroups.local)};
+#endif
+
 
     sycl::kernel k = kern.get_kernel();
     GPU_DEBUG_LOG << "kernel_id = " << sycl_kernel.get_id() << ", sycl::nd_range global_range=["
@@ -268,7 +291,6 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                   << ndr.get_local_range()[2] << "]" << std::endl;
 
     std::vector<sycl::event> dep_events;
-    std::vector<sycl::event>* dep_events_ptr = nullptr;
     if (m_sync_method == SyncMethods::events) {
         for (auto& dep : deps) {
             if (auto ocl_base_ev = std::dynamic_pointer_cast<sycl_lz_base_event>(dep)) {
@@ -276,7 +298,6 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                 dep_events.push_back(ocl_base_ev->get());
             }
         }
-        dep_events_ptr = &dep_events;
     } else if (m_sync_method == SyncMethods::barriers) {
         // sync_events(deps, is_output);
         GPU_DEBUG_LOG << "Not implemented. m_sync_method == SyncMethods::barriers." << std::endl;
