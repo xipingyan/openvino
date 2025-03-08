@@ -79,7 +79,7 @@ cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
         // inputs_args.push_back({params_buf, is_output});
         return CL_SUCCESS;
     } else if (memory_capabilities::is_usm_type(mem->get_allocation_type())) {
-        inputs_args.push_back(sycl_args{mem->buffer_ptr(), is_output});
+        inputs_args.push_back(sycl_args{mem->buffer_ptr()});
         auto mem_type = std::dynamic_pointer_cast<const sycl_lz::gpu_usm>(mem)->get_allocation_type();
         GPU_DEBUG_LOG << " mem_type = " << mem_type << " mem: " << mem->buffer_ptr() << " size: " << mem->size()
                       << std::endl;

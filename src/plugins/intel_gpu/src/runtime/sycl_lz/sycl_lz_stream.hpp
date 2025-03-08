@@ -72,13 +72,12 @@ private:
 
 struct sycl_args {
     sycl_args() = delete;
-    sycl_args(void* buf, bool isOutput) : _isBuf(true), _isOutput(isOutput), _buf(buf) {
+    sycl_args(void* buf) : _isBuf(true), _buf(buf) {
         _scalar.t = cldnn::scalar_desc::Types::UINT8;
         _scalar.v.u8 = 0;
     }
     sycl_args(scalar_desc scalar) : _isBuf(false), _buf(nullptr), _scalar(scalar) {}
     bool _isBuf;
-    bool _isOutput = false;
     void* _buf;
     scalar_desc _scalar;
 };
