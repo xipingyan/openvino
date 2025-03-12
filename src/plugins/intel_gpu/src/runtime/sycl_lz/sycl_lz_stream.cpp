@@ -64,8 +64,7 @@ void sycl_lz_stream::wait() {
 cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
                                   std::vector<sycl_args>& inputs_args,
                                   uint32_t idx,
-                                  cldnn::memory::cptr mem,
-                                  bool is_output = false) {
+                                  cldnn::memory::cptr mem) {
     if (!mem)
         return CL_INVALID_ARG_VALUE;
 
@@ -100,7 +99,8 @@ cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
 
 std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args,
                                                       const kernel_arguments_data& data,
-                                                      const std::string& kernel_id) {
+                                                      const std::string& kernel_id,
+                                                      std::shared_ptr<::sycl::queue> sycl_queue) {
     using args_t = argument_desc::Types;
 
     static std::mutex m;
@@ -124,12 +124,28 @@ std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args
             break;
         case args_t::INTERNAL_BUFFER:
             if (args[i].index < data.intermediates.size() && data.intermediates[args[i].index]) {
-                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.intermediates[args[i].index]);
+                cldnn::memory::cptr mem = data.intermediates[args[i].index];
+                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, mem);
+#if 1
+                if (mem->size() == 4) {
+                    auto* ptr = mem->buffer_ptr();
+                    float* ptr_host = new float[1];
+                    sycl_queue->memcpy(ptr_host, ptr, 4).wait();
+                    GPU_DEBUG_LOG << "INTERNAL_BUFFER, *ptr_host = " << ptr_host[0] << std::endl;
+                    free(ptr_host);
+                } else if (mem->size() == 2) {
+                    auto* ptr = mem->buffer_ptr();
+                    sycl::half* ptr_host = new sycl::half[1];
+                    sycl_queue->memcpy(ptr_host, ptr, 2).wait();
+                    GPU_DEBUG_LOG << "INTERNAL_BUFFER, *ptr_host = " << static_cast<float>(ptr_host[0]) << std::endl;
+                    free(ptr_host);
+                }
+#endif
             }
             break;
         case args_t::OUTPUT:
             if (args[i].index < data.outputs.size() && data.outputs[args[i].index]) {
-                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.outputs[args[i].index], true);
+                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.outputs[args[i].index]);
             }
             break;
         case args_t::WEIGHTS:
@@ -304,7 +320,7 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
     }
 
     // Unify all inputs.
-    auto inputs_args = set_arguments_impl_sycl_kernel(args_desc.arguments, args, sycl_kernel.get_id());
+    auto inputs_args = set_arguments_impl_sycl_kernel(args_desc.arguments, args, sycl_kernel.get_id(), sycl_queue);
 
     auto ret_ev = sycl_queue->submit([&](sycl::handler& cgh) {
         cgh.depends_on(dep_events);
