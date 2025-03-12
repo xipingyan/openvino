@@ -25,8 +25,8 @@ struct gemm_sycl_lz : typed_primitive_sycl_lz_impl<gemm> {
     event::ptr execute_impl(const std::vector<event::ptr>& /* events */,
                             typed_primitive_inst<gemm>& instance) override {
         GPU_DEBUG_LOG << "Not implemented[SYCL_RUNTIME]. GemmSyclLzImplementationManager::execute_impl" << std::endl;
-        auto& network = instance.get_network();
-        const auto& desc = instance.get_typed_desc<gemm>();
+        // auto& network = instance.get_network();
+        // const auto& desc = instance.get_typed_desc<gemm>();
 
         // auto& stream = downcast<ocl::sycl_stream>(network.get_stream());
         // auto& engine = downcast<ocl::sycl_engine>(network.get_engine());
@@ -129,6 +129,7 @@ struct gemm_sycl_lz : typed_primitive_sycl_lz_impl<gemm> {
         // } else {
         //     OPENVINO_THROW("No instance for given types found: ", in_t, " ", wei_t, " ", out_t, " ", ds_t, " ", dzp_t);
         // }
+        return nullptr;
     }
 
     static std::shared_ptr<WeightsReorderParams> get_weights_reorder(const kernel_impl_params& impl_params) {
