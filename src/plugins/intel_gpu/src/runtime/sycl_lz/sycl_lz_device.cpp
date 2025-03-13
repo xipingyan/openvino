@@ -215,7 +215,20 @@ cl::Device get_cl_device() {
         GPU_DEBUG_LOG << "No platforms found. Check OpenCL installation!" << std::endl;
         exit(1);
     }
-    cl::Platform default_platform = all_platforms[0];
+    size_t selected_platform = -1;
+    for (size_t i = 0; i < all_platforms.size(); i++) {
+        std::string platname = all_platforms[i].getInfo<CL_PLATFORM_NAME>();
+        if (platname.find("Graphics") != std::string::npos) {
+            selected_platform = i;
+            break;
+        }
+    }
+    if (selected_platform == -1) {
+        GPU_DEBUG_LOG << "No GPU platforms is found. Check OpenCL installation!\n";
+        exit(1);
+    }
+
+    cl::Platform default_platform = all_platforms[selected_platform];
     GPU_DEBUG_LOG << "Using platform: " << default_platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
 
     // get default device of the default platform
