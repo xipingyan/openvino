@@ -14,6 +14,13 @@
 #include "sycl_lz_device.hpp"
 #include "intel_gpu/runtime/debug_configuration.hpp"
 
+#ifndef CL_HPP_TARGET_OPENCL_VERSION
+#    define CL_HPP_TARGET_OPENCL_VERSION 200
+#    include <CL/opencl.hpp>
+
+#    include "ocl/ocl_ext.hpp"
+#endif
+
 #include <map>
 #include <string>
 #include <vector>
@@ -147,31 +154,33 @@ device_type get_device_type(const sycl::device& device) {
     return unified_mem ? device_type::integrated_gpu : device_type::discrete_gpu;
 }
 
-// gfx_version parse_version(cl_uint gmdid) {
-//     union GMDID {
-//         uint32_t value;
-//         struct {
-//             uint32_t revision : 6;
-//             uint32_t reserved : 8;
-//             uint32_t release : 8;
-//             uint32_t architecture : 10;
-//         };
-//     };
+gfx_version parse_version(cl_uint gmdid) {
+    union GMDID {
+        uint32_t value;
+        struct {
+            uint32_t revision : 6;
+            uint32_t reserved : 8;
+            uint32_t release : 8;
+            uint32_t architecture : 10;
+        };
+    };
 
-//     GMDID gmd_id = {gmdid};
-//     if (gmd_id.architecture > 0 && gmd_id.architecture < 100) {
-//         // New format
-//         return { static_cast<uint16_t>(gmd_id.architecture), static_cast<uint8_t>(gmd_id.release), static_cast<uint8_t>(gmd_id.revision)};
-//     } else {
-//         // Old format
-//         cl_uint ver = gmdid;
-//         uint16_t major = ver >> 16;
-//         uint8_t minor = (ver >> 8) & 0xFF;
-//         uint8_t revision = ver & 0xFF;
+    GMDID gmd_id = {gmdid};
+    if (gmd_id.architecture > 0 && gmd_id.architecture < 100) {
+        // New format
+        return {static_cast<uint16_t>(gmd_id.architecture),
+                static_cast<uint8_t>(gmd_id.release),
+                static_cast<uint8_t>(gmd_id.revision)};
+    } else {
+        // Old format
+        cl_uint ver = gmdid;
+        uint16_t major = ver >> 16;
+        uint8_t minor = (ver >> 8) & 0xFF;
+        uint8_t revision = ver & 0xFF;
 
-//         return {major, minor, revision};
-//     }
-// }
+        return {major, minor, revision};
+    }
+}
 
 bool get_imad_support(const sycl::device& device) {
     std::string dev_name = device.get_info<sycl::info::device::name>();
@@ -199,6 +208,44 @@ bool get_imad_support(const sycl::device& device) {
     return false;
 }
 
+cl::Device get_cl_device() {
+    std::vector<cl::Platform> all_platforms;
+    cl::Platform::get(&all_platforms);
+    if (all_platforms.size() == 0) {
+        GPU_DEBUG_LOG << "No platforms found. Check OpenCL installation!" << std::endl;
+        exit(1);
+    }
+    size_t selected_platform = -1;
+    for (size_t i = 0; i < all_platforms.size(); i++) {
+        std::string platname = all_platforms[i].getInfo<CL_PLATFORM_NAME>();
+        if (platname.find("Graphics") != std::string::npos) {
+            selected_platform = i;
+            break;
+        }
+    }
+    if (selected_platform == -1) {
+        GPU_DEBUG_LOG << "No GPU platforms is found. Check OpenCL installation!\n";
+        exit(1);
+    }
+
+    cl::Platform default_platform = all_platforms[selected_platform];
+    GPU_DEBUG_LOG << "Using platform: " << default_platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
+
+    // get default device of the default platform
+    std::vector<cl::Device> all_devices;
+    default_platform.getDevices(CL_DEVICE_TYPE_GPU, &all_devices);
+    if (all_devices.size() == 0) {
+        GPU_DEBUG_LOG << "No devices found. Check OpenCL installation!\n";
+        exit(1);
+    }
+    for (auto dev : all_devices) {
+        cl::Device default_device = all_devices[0];
+        GPU_DEBUG_LOG << "Using device: " << default_device.getInfo<CL_DEVICE_NAME>() << "\n";
+    }
+
+    return all_devices[0];
+}
+
 device_info init_device_info(const sycl::device& device) {
     device_info info = {};
 
@@ -216,6 +263,11 @@ device_info init_device_info(const sycl::device& device) {
     info.gpu_frequency = static_cast<uint32_t>(device.get_info<sycl::info::device::max_clock_frequency>());
 
     info.max_work_group_size = static_cast<uint64_t>(device.get_info<sycl::info::device::max_work_group_size>());
+    GPU_DEBUG_INFO << "info.execution_units_count = " << info.execution_units_count << std::endl;
+    GPU_DEBUG_INFO << "info.gpu_frequency = " << info.gpu_frequency << std::endl;
+    GPU_DEBUG_INFO << "info.max_work_group_size = " << info.max_work_group_size << std::endl;
+
+    auto cl_device = get_cl_device();
 
     // For some reason nvidia runtime throws an exception (CL_INVALID_KERNEL_ARGS) for WG as follows:
     // global: < 1 x 32 x 5184 >
@@ -240,6 +292,8 @@ device_info init_device_info(const sycl::device& device) {
     auto in_extensions = [&](std::string ext) {
         return std::find(extensions.begin(), extensions.end(), ext) != extensions.end();
     };
+    auto cl_extensions = cl_device.getInfo<CL_DEVICE_EXTENSIONS>();
+    cl_extensions.push_back(' ');  // Add trailing space to ease searching (search with keyword with trailing space).
 
     info.supports_intel_planar_yuv = in_extensions("cl_intel_planar_yuv");
     info.supports_fp16 = in_extensions("cl_khr_fp16");
@@ -259,8 +313,8 @@ device_info init_device_info(const sycl::device& device) {
     info.supports_imad = get_imad_support(device);
     info.supports_immad = false;
 
-    info.supports_usm = in_extensions("cl_intel_unified_shared_memory") ||
-                        in_extensions("cl_intel_unified_shared_memory_preview");
+    info.supports_usm = cl_extensions.find("cl_intel_unified_shared_memory ") != std::string::npos ||
+                        cl_extensions.find("cl_intel_unified_shared_memory_preview ") != std::string::npos;
 
     info.supports_local_block_io = in_extensions("cl_intel_subgroup_local_block_io");
 
@@ -278,76 +332,68 @@ device_info init_device_info(const sycl::device& device) {
     if (device_uuid_supported) {
         static_assert(CL_UUID_SIZE_KHR == ov::device::UUID::MAX_UUID_SIZE, "");
         static_assert(CL_LUID_SIZE_KHR == ov::device::LUID::MAX_LUID_SIZE, "");
-        std::fill_n(std::begin(info.luid.luid),
-                    ov::device::LUID::MAX_LUID_SIZE,
-                    0);  // Not implemented[SYCL_RUNTIME]. SYCL doesn't expose LUID.
-        info.uuid.uuid = device.get_info<sycl::info::device::ext_intel_device_info_uuid>();
+        info.luid.luid = cl_device.getInfo<CL_DEVICE_LUID_KHR>();
+        info.uuid.uuid = cl_device.getInfo<CL_DEVICE_UUID_KHR>();
     } else {
         std::fill_n(std::begin(info.luid.luid), ov::device::LUID::MAX_LUID_SIZE, 0);
         std::fill_n(std::begin(info.uuid.uuid), ov::device::UUID::MAX_UUID_SIZE, 0);
     }
 
-    // bool device_attr_supported = in_extensions("cl_intel_device_attribute_query");
-    // bool nv_device_attr_supported = in_extensions("cl_nv_device_attribute_query");
+    bool device_attr_supported = cl_extensions.find("cl_intel_device_attribute_query") != std::string::npos;
+    bool nv_device_attr_supported = cl_extensions.find("cl_nv_device_attribute_query") != std::string::npos;
     info.has_separate_cache = false;
-    // if (device_attr_supported) {
-    //     info.ip_version = device.get_info<sycl::info::device::IP_VERSION_INTEL>();
-    //     info.gfx_ver = parse_version(info.ip_version);
-    //     info.device_id = device.get_info<sycl::info::device::ID_INTEL>();
-    info.num_slices = device.get_info<sycl::info::device::ext_intel_gpu_slices>();
-    info.num_sub_slices_per_slice = device.get_info<sycl::info::device::ext_intel_gpu_subslices_per_slice>();
-    info.num_eus_per_sub_slice = device.get_info<sycl::info::device::ext_intel_gpu_eu_count_per_subslice>();
-    info.num_threads_per_eu = device.get_info<sycl::info::device::ext_intel_gpu_hw_threads_per_eu>();
-    // auto features = device.get_info<sycl::info::device::FEATURE_CAPABILITIES_INTEL>();
+    if (device_attr_supported) {
+        info.ip_version = cl_device.getInfo<CL_DEVICE_IP_VERSION_INTEL>();
+        info.gfx_ver = parse_version(info.ip_version);
+        info.device_id = cl_device.getInfo<CL_DEVICE_ID_INTEL>();
 
-    // Temp solution. oneDNN kernel need info.supports_immad == true.
-    GPU_DEBUG_LOG << "Temp solution, hard code info.supports_immad == true, because oneDNN need it." << std::endl;
-    info.supports_immad = true;
+        info.num_slices = cl_device.getInfo<CL_DEVICE_NUM_SLICES_INTEL>();
+        info.num_sub_slices_per_slice = cl_device.getInfo<CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL>();
+        info.num_eus_per_sub_slice = cl_device.getInfo<CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL>();
+        info.num_threads_per_eu = cl_device.getInfo<CL_DEVICE_NUM_THREADS_PER_EU_INTEL>();
+        auto features = cl_device.getInfo<CL_DEVICE_FEATURE_CAPABILITIES_INTEL>();
 
-    //     info.supports_imad = info.supports_imad || (features & CL_DEVICE_FEATURE_FLAG_DP4A_INTEL);
-    //     info.supports_immad = info.supports_immad || (features & CL_DEVICE_FEATURE_FLAG_DPAS_INTEL);
-    // if (info.dev_type == device_type::discrete_gpu || info.gfx_ver.major > 12 ||
-    //     (info.gfx_ver.major == 12 && info.gfx_ver.minor >= 70)) {
-    //     info.has_separate_cache = true;
-    // }
-    GPU_DEBUG_LOG << "Temp implemented. oneDNN need this `info.has_separate_cache` to check if "
-                     "transfer_memory_to_device. So set info.has_separate_cache to true."
-                  << std::endl;
-    info.has_separate_cache = true;
-    GPU_DEBUG_INFO << "GPU version: " << static_cast<int>(info.gfx_ver.major) << "."
-                   << static_cast<int>(info.gfx_ver.minor) << "." << static_cast<int>(info.gfx_ver.revision)
-                   << (info.has_separate_cache ? " with separate cache" : "") << std::endl;
-    //     GPU_DEBUG_GET_INSTANCE(debug_config);
-    //     GPU_DEBUG_IF(debug_config->disable_onednn)
-    //     info.supports_immad = false;
-    // } else if (nv_device_attr_supported) {
-    //     info.gfx_ver = {static_cast<uint16_t>(device.get_info<sycl::info::device::COMPUTE_CAPABILITY_MAJOR_NV>()),
-    //                     static_cast<uint8_t>(device.get_info<sycl::info::device::COMPUTE_CAPABILITY_MINOR_NV>()),
-    //                     0};
-    // } else {
-    // Not implemented[SYCL_RUNTIME].
-    info.gfx_ver = {0, 0, 0};
-    info.device_id = driver_dev_id();
-    info.num_slices = 0;
-    info.num_sub_slices_per_slice = 0;
-    info.num_eus_per_sub_slice = 0;
-    info.num_threads_per_eu = 0;
-    // }
+        info.supports_imad = info.supports_imad || (features & CL_DEVICE_FEATURE_FLAG_DP4A_INTEL);
+        info.supports_immad = info.supports_immad || (features & CL_DEVICE_FEATURE_FLAG_DPAS_INTEL);
+        if (info.dev_type == device_type::discrete_gpu ||
+            info.gfx_ver.major > 12 || (info.gfx_ver.major == 12 && info.gfx_ver.minor >= 70)) {
+            info.has_separate_cache = true;
+        }
+        GPU_DEBUG_INFO << "GPU version: "
+            << static_cast<int>(info.gfx_ver.major) << "." << static_cast<int>(info.gfx_ver.minor) << "." << static_cast<int>(info.gfx_ver.revision)
+            << (info.has_separate_cache ? " with separate cache" : "") << std::endl;
+        GPU_DEBUG_GET_INSTANCE(debug_config);
+        GPU_DEBUG_IF(debug_config->disable_onednn)
+            info.supports_immad = false;
+
+        GPU_DEBUG_LOG << "info.supports_immad = " << info.supports_immad << std::endl;
+
+    } else if (nv_device_attr_supported) {
+        info.gfx_ver = {static_cast<uint16_t>(cl_device.getInfo<CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV>()),
+                        static_cast<uint8_t>(cl_device.getInfo<CL_DEVICE_COMPUTE_CAPABILITY_MINOR_NV>()),
+                        0};
+    } else {
+        info.gfx_ver = {0, 0, 0};
+        info.device_id = driver_dev_id();
+        info.num_slices = 0;
+        info.num_sub_slices_per_slice = 0;
+        info.num_eus_per_sub_slice = 0;
+        info.num_threads_per_eu = 0;
+    }
 
     info.num_ccs = 1;
-    // Not implemented[SYCL_RUNTIME].
-    // if (info.supports_queue_families) {
-    //     cl_uint num_queues = 0;
+    if (info.supports_queue_families) {
+        cl_uint num_queues = 0;
 
-    //     std::vector<cl_queue_family_properties_intel> qfprops =
-    //         device.get_info<sycl::info::device::QUEUE_FAMILY_PROPERTIES_INTEL>();
-    //     for (cl_uint q = 0; q < qfprops.size(); q++) {
-    //         if (qfprops[q].capabilities == CL_QUEUE_DEFAULT_CAPABILITIES_INTEL && qfprops[q].count > num_queues) {
-    //             num_queues = qfprops[q].count;
-    //         }
-    //     }
-    //     info.num_ccs = std::max<uint32_t>(num_queues, info.num_ccs);
-    // }
+        std::vector<cl_queue_family_properties_intel> qfprops =
+            cl_device.getInfo<CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL>();
+        for (cl_uint q = 0; q < qfprops.size(); q++) {
+            if (qfprops[q].capabilities == CL_QUEUE_DEFAULT_CAPABILITIES_INTEL && qfprops[q].count > num_queues) {
+                num_queues = qfprops[q].count;
+            }
+        }
+        info.num_ccs = std::max<uint32_t>(num_queues, info.num_ccs);
+    }
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
     using namespace dnnl::impl::gpu::intel::jit;
@@ -378,33 +424,31 @@ device_info init_device_info(const sycl::device& device) {
     return info;
 }
 
-// bool does_device_support(int32_t param, const sycl::device& device) {
-    // cl_device_unified_shared_memory_capabilities_intel capabilities;
-    // auto err = clGetDeviceInfo(device.get(), param, sizeof(cl_device_unified_shared_memory_capabilities_intel), &capabilities, NULL);
-    // if (err) throw std::runtime_error("[CLDNN ERROR]. clGetDeviceInfo error " + std::to_string(err));
+bool does_device_support(int32_t param, const cl::Device& device) {
+    cl_device_unified_shared_memory_capabilities_intel capabilities;
+    auto err = clGetDeviceInfo(device.get(), param, sizeof(cl_device_unified_shared_memory_capabilities_intel), &capabilities, NULL);
+    if (err) throw std::runtime_error("[CLDNN ERROR]. clGetDeviceInfo error " + std::to_string(err));
 
-    // return !((capabilities & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL) == 0u);
-// }
+    return !((capabilities & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL) == 0u);
+}
 
 memory_capabilities init_memory_caps(const sycl::device& device, const device_info& info) {
     std::vector<allocation_type> memory_caps;
-
-    // "Not implemented[SYCL_RUNTIME]. Temp init"
-    memory_caps.push_back(allocation_type::usm_host);
-    memory_caps.push_back(allocation_type::usm_shared);
-    memory_caps.push_back(allocation_type::usm_device);
-
-    // if (info.supports_usm) {
-    //     if (does_device_support(CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL, device)) {
-    //         memory_caps.push_back(allocation_type::usm_host);
-    //     }
-    //     if (does_device_support(CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL, device)) {
-    //         memory_caps.push_back(allocation_type::usm_shared);
-    //     }
-    //     if (does_device_support(CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL, device)) {
-    //         memory_caps.push_back(allocation_type::usm_device);
-    //     }
-    // }
+    auto cl_device = get_cl_device();
+    if (info.supports_usm) {
+        if (does_device_support(CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL, cl_device)) {
+            memory_caps.push_back(allocation_type::usm_host);
+        }
+        if (does_device_support(CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL, cl_device)) {
+            memory_caps.push_back(allocation_type::usm_shared);
+        }
+        if (does_device_support(CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL, cl_device)) {
+            memory_caps.push_back(allocation_type::usm_device);
+        }
+        for (auto m : memory_caps) {
+            GPU_DEBUG_LOG << "m = " << m << std::endl;
+        }
+    }
 
     return memory_capabilities(memory_caps);
 }

@@ -84,6 +84,7 @@ bool query_local_block_io_supported(engine& e, const ExecutionConfig& config) {
 
     std::shared_ptr<kernel_selector::KernelString> kernel_string = std::make_shared<kernel_selector::KernelString>();
     std::string kernel_code =
+        "// Kernel name: is_local_block_io_supported"
         "__attribute__((intel_reqd_sub_group_size(8)))"
         "__attribute__((reqd_work_group_size(8, 1, 1)))"
         "void kernel is_local_block_io_supported(global uchar* dst) {"
@@ -107,6 +108,7 @@ bool query_local_block_io_supported(engine& e, const ExecutionConfig& config) {
             (e.runtime_type() == runtime_types::ocl) ? (new kernels_cache(e, config, 0))
                                                      : (new sycl_lz_kernels_cache(e, config, 0)));
         _kernels_cache_device_query->add_kernels_source(dummy_params, {kernel_string}, false);
+        GPU_DEBUG_LOG << "Just run this kernel to confirm if support micro." << std::endl;
         _kernels_cache_device_query->build_all();
 
         auto _kernels = _kernels_cache_device_query->get_kernels(dummy_params);
@@ -135,6 +137,7 @@ bool query_microkernels_supported(cldnn::engine& e, const cldnn::ExecutionConfig
     std::shared_ptr<kernel_selector::KernelString> kernel_string = std::make_shared<kernel_selector::KernelString>();
     // This program check that all required vISA features are supported by current IGC version
     const char* kernel_code = R""""(
+        // Kernel name: igc_check
         kernel void igc_check() {
             __asm__ volatile(
                     ".decl AA0 v_type=G type=ud num_elts=1\n"
@@ -157,6 +160,8 @@ bool query_microkernels_supported(cldnn::engine& e, const cldnn::ExecutionConfig
             (e.runtime_type() == runtime_types::ocl) ? (new cldnn::kernels_cache(e, config, 0))
                                                      : (new cldnn::sycl_lz_kernels_cache(e, config, 0)));
         _kernels_cache_device_query->add_kernels_source(dummy_params, {kernel_string}, false);
+
+        GPU_DEBUG_LOG << "Just run this kernel to confirm if support micro." << std::endl;
         _kernels_cache_device_query->build_all();
         cache[device] = true;
     } catch (std::exception&) {

@@ -319,8 +319,11 @@ bool SDPAKernelMicro::Validate(const Params& p) const {
     if (params.conf.is_paged_attention)
         return false;
 
-    if (params.engineInfo.arch < gpu_arch::xe_hpg || !params.engineInfo.supports_microkernels)
+    if (params.engineInfo.arch < gpu_arch::xe_hpg || !params.engineInfo.supports_microkernels) {
+        GPU_DEBUG_LOG << "current supports_microkernels = " << params.engineInfo.supports_microkernels
+                      << ", if equal with 0, kernel 'SDPAKernelMicro' will no be selected." << std::endl;
         return false;
+    }
 
     if (params.conf.is_causal)
         return false;
