@@ -99,7 +99,6 @@ std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args
                                                       const kernel_arguments_data& data,
                                                       const std::string& kernel_id) {
     using args_t = argument_desc::Types;
-    using scalar_t = scalar_desc::Types;
 
     static std::mutex m;
     std::lock_guard<std::mutex> guard(m);
@@ -268,7 +267,6 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                   << ndr.get_local_range()[2] << "]" << std::endl;
 
     std::vector<sycl::event> dep_events;
-    std::vector<sycl::event>* dep_events_ptr = nullptr;
     if (m_sync_method == SyncMethods::events) {
         for (auto& dep : deps) {
             if (auto ocl_base_ev = std::dynamic_pointer_cast<sycl_lz_base_event>(dep)) {
@@ -276,7 +274,6 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
                 dep_events.push_back(ocl_base_ev->get());
             }
         }
-        dep_events_ptr = &dep_events;
     } else if (m_sync_method == SyncMethods::barriers) {
         // sync_events(deps, is_output);
         GPU_DEBUG_LOG << "Not implemented. m_sync_method == SyncMethods::barriers." << std::endl;
