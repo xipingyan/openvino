@@ -47,8 +47,7 @@ sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConf
 
 void sycl_lz_stream::flush() const {
     // Issues all previously queued OpenCL commands in a command-queue to the device associated with the command-queue.
-    GPU_DEBUG_LOG << "Not implemented. sycl_lz_stream::flush(), maybe sycl doesn't need it." << std::endl;
-    sycl_queue->wait();
+    GPU_DEBUG_LOG << "Not implemented. There is no mirror function of clFlush. SYCL doesn't need it." << std::endl;
 }
 
 void sycl_lz_stream::finish() const {
@@ -58,7 +57,8 @@ void sycl_lz_stream::finish() const {
 
 void sycl_lz_stream::wait() {
     GPU_DEBUG_LOG << "Temp implemented. sycl_queue->wait();" << std::endl;
-    sycl_queue->wait();
+    // sycl_queue->wait();
+    sycl_queue->ext_oneapi_submit_barrier().wait();
 }
 
 cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
