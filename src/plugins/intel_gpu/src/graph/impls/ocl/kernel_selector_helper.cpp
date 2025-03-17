@@ -137,7 +137,6 @@ bool query_microkernels_supported(cldnn::engine& e, const cldnn::ExecutionConfig
     std::shared_ptr<kernel_selector::KernelString> kernel_string = std::make_shared<kernel_selector::KernelString>();
     // This program check that all required vISA features are supported by current IGC version
     const char* kernel_code = R""""(
-        // Kernel name: igc_check
         kernel void igc_check() {
             __asm__ volatile(
                     ".decl AA0 v_type=G type=ud num_elts=1\n"
