@@ -62,7 +62,7 @@ void sycl_lz_stream::wait() {
 }
 
 cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
-                                  std::vector<sycl_args>& inputs_args,
+                                  sycl::handler& cgh,
                                   uint32_t idx,
                                   cldnn::memory::cptr mem,
                                   bool is_output = false) {
@@ -79,7 +79,8 @@ cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
         // inputs_args.push_back({params_buf, is_output});
         return CL_SUCCESS;
     } else if (memory_capabilities::is_usm_type(mem->get_allocation_type())) {
-        inputs_args.push_back(sycl_args{mem->buffer_ptr(), is_output});
+        cgh.set_arg(idx, mem->buffer_ptr());
+        // inputs_args.push_back(sycl_args{mem->buffer_ptr(), is_output});
         return CL_SUCCESS;
     } else {
         auto buf = std::dynamic_pointer_cast<const ocl::gpu_buffer>(mem)->get_buffer();
@@ -93,88 +94,6 @@ cl_int set_kernel_arg_sycl_kernel(const std::string& kernel_id,
     }
 
     return CL_INVALID_ARG_VALUE;
-}
-
-std::vector<sycl_args> set_arguments_impl_sycl_kernel(const arguments_desc& args,
-                                                      const kernel_arguments_data& data,
-                                                      const std::string& kernel_id) {
-    using args_t = argument_desc::Types;
-
-    static std::mutex m;
-    std::lock_guard<std::mutex> guard(m);
-
-    std::vector<sycl_args> inputs_args;
-
-    for (uint32_t i = 0; i < static_cast<uint32_t>(args.size()); i++) {
-        cl_int status = CL_INVALID_ARG_VALUE;
-        GPU_DEBUG_LOG << "i = " << i << ", args[i].t=" << args[i].t << std::endl;
-        switch (args[i].t) {
-        case args_t::INPUT:
-            if (args[i].index < data.inputs.size() && data.inputs[args[i].index]) {
-                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.inputs[args[i].index]);
-            }
-            break;
-        case args_t::INPUT_OF_FUSED_PRIMITIVE:
-            if (args[i].index < data.fused_op_inputs.size() && data.fused_op_inputs[args[i].index]) {
-                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.fused_op_inputs[args[i].index]);
-            }
-            break;
-        case args_t::INTERNAL_BUFFER:
-            if (args[i].index < data.intermediates.size() && data.intermediates[args[i].index]) {
-                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.intermediates[args[i].index]);
-            }
-            break;
-        case args_t::OUTPUT:
-            if (args[i].index < data.outputs.size() && data.outputs[args[i].index]) {
-                status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.outputs[args[i].index], true);
-            }
-            break;
-        case args_t::WEIGHTS:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.weights);
-            break;
-        case args_t::BIAS:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.bias);
-            break;
-        case args_t::WEIGHTS_ZERO_POINTS:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.weights_zero_points);
-            break;
-        case args_t::ACTIVATIONS_ZERO_POINTS:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.activations_zero_points);
-            break;
-        case args_t::COMPENSATION:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.compensation);
-            break;
-        case args_t::SCALE_TABLE:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.scale_table);
-            break;
-        case args_t::SLOPE:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.slope);
-            break;
-        case args_t::SCALAR:
-            if (data.scalars && args[i].index < data.scalars->size()) {
-                const auto& scalar = (*data.scalars)[args[i].index];
-                inputs_args.push_back(sycl_args{scalar});
-                GPU_DEBUG_LOG << " == Temp implemented. args_t::SCALAR" << kernel_id << ", scalar=" << scalar
-                              << std::endl;
-                status = CL_SUCCESS;
-            }
-            break;
-        case args_t::CELL:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.cell);
-            break;
-        case args_t::SHAPE_INFO:
-            status = set_kernel_arg_sycl_kernel(kernel_id, inputs_args, i, data.shape_info);
-            break;
-        default:
-            break;
-        }
-
-        if (status != CL_SUCCESS) {
-            throw std::runtime_error("Error sycl set arg " + std::to_string(i) + ", kernel_id: " + kernel_id +
-                                     ", error code: " + std::to_string(status) + "\n");
-        }
-    }
-    return inputs_args;
 }
 
 inline void set_args_scalar(sycl::handler& cgh, const size_t& idx, const scalar_desc& scalar) {
@@ -212,6 +131,87 @@ inline void set_args_scalar(sycl::handler& cgh, const size_t& idx, const scalar_
         break;
     default:
         break;
+    }
+}
+
+void set_arguments_impl_sycl_kernel(const arguments_desc& args,
+                                                      const kernel_arguments_data& data,
+                                                      const std::string& kernel_id,
+                                                      sycl::handler& cgh) {
+    using args_t = argument_desc::Types;
+
+    static std::mutex m;
+    std::lock_guard<std::mutex> guard(m);
+
+    for (uint32_t i = 0; i < static_cast<uint32_t>(args.size()); i++) {
+        cl_int status = CL_INVALID_ARG_VALUE;
+        GPU_DEBUG_LOG << "i = " << i << ", args[i].t=" << args[i].t << std::endl;
+        switch (args[i].t) {
+        case args_t::INPUT:
+            if (args[i].index < data.inputs.size() && data.inputs[args[i].index]) {
+                status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.inputs[args[i].index]);
+            }
+            break;
+        case args_t::INPUT_OF_FUSED_PRIMITIVE:
+            if (args[i].index < data.fused_op_inputs.size() && data.fused_op_inputs[args[i].index]) {
+                status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.fused_op_inputs[args[i].index]);
+            }
+            break;
+        case args_t::INTERNAL_BUFFER:
+            if (args[i].index < data.intermediates.size() && data.intermediates[args[i].index]) {
+                status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.intermediates[args[i].index]);
+            }
+            break;
+        case args_t::OUTPUT:
+            if (args[i].index < data.outputs.size() && data.outputs[args[i].index]) {
+                status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.outputs[args[i].index], true);
+            }
+            break;
+        case args_t::WEIGHTS:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.weights);
+            break;
+        case args_t::BIAS:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.bias);
+            break;
+        case args_t::WEIGHTS_ZERO_POINTS:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.weights_zero_points);
+            break;
+        case args_t::ACTIVATIONS_ZERO_POINTS:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.activations_zero_points);
+            break;
+        case args_t::COMPENSATION:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.compensation);
+            break;
+        case args_t::SCALE_TABLE:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.scale_table);
+            break;
+        case args_t::SLOPE:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.slope);
+            break;
+        case args_t::SCALAR:
+            if (data.scalars && args[i].index < data.scalars->size()) {
+                const auto& scalar = (*data.scalars)[args[i].index];
+                // inputs_args.push_back(sycl_args{scalar});
+                set_args_scalar(cgh, i, scalar);
+                GPU_DEBUG_LOG << " == Temp implemented. args_t::SCALAR" << kernel_id << ", scalar=" << scalar
+                              << std::endl;
+                status = CL_SUCCESS;
+            }
+            break;
+        case args_t::CELL:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.cell);
+            break;
+        case args_t::SHAPE_INFO:
+            status = set_kernel_arg_sycl_kernel(kernel_id, cgh, i, data.shape_info);
+            break;
+        default:
+            break;
+        }
+
+        if (status != CL_SUCCESS) {
+            throw std::runtime_error("Error sycl set arg " + std::to_string(i) + ", kernel_id: " + kernel_id +
+                                     ", error code: " + std::to_string(status) + "\n");
+        }
     }
 }
 
@@ -279,20 +279,9 @@ event::ptr sycl_lz_stream::enqueue_kernel(kernel& kernel,
         GPU_DEBUG_LOG << "Not implemented. m_sync_method == SyncMethods::barriers." << std::endl;
     }
 
-    // Unify all inputs.
-    auto inputs_args = set_arguments_impl_sycl_kernel(args_desc.arguments, args, sycl_kernel.get_id());
-
     auto ret_ev = sycl_queue->submit([&](sycl::handler& cgh) {
         cgh.depends_on(dep_events);
-        for (size_t i = 0; i < inputs_args.size(); i++) {
-            auto& cur_buf = inputs_args[i];
-            if (cur_buf._isBuf) {
-                cgh.set_arg(i, cur_buf._buf);
-            } else {
-                // Scalar params
-                set_args_scalar(cgh, i, cur_buf._scalar);
-            }
-        }
+        set_arguments_impl_sycl_kernel(args_desc.arguments, args, sycl_kernel.get_id(), cgh);
 
         // Invoke the kernel over an nd-range.
         cgh.parallel_for(ndr, k);
