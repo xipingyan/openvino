@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2024 Intel Corporation
+# Copyright (C) 2018-2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -69,6 +69,10 @@ if(OV_COMPILER_IS_INTEL_LLVM)
     endif()
 endif()
 
+if(ENABLE_ONEDNN_FOR_GPU)
+  ov_target_link_libraries_as_system(${TARGET_NAME} PUBLIC onednn_gpu_tgt)
+endif()
+
 ov_set_threading_interface_for(${TARGET_NAME})
 
 target_link_libraries(${TARGET_NAME} PRIVATE
@@ -76,10 +80,6 @@ target_link_libraries(${TARGET_NAME} PRIVATE
     openvino::itt
     openvino::runtime::dev
   )
-
-if(ENABLE_ONEDNN_FOR_GPU)
-  target_link_libraries(${TARGET_NAME} PUBLIC onednn_gpu_tgt)
-endif()
 
 set_target_properties(${TARGET_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ${ENABLE_LTO})
 

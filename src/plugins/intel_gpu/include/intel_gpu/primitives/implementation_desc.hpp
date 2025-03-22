@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2024 Intel Corporation
+// Copyright (C) 2018-2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -19,7 +19,8 @@ enum class impl_types : uint8_t {
     ocl = 1 << 2,
     onednn = 1 << 3,
     sycl = 1 << 4,
-    sycl_lz = 1 << 5,
+    cm = 1 << 5,
+    sycl_lz = 1 << 6,
     any = 0xFF,
 };
 
@@ -46,6 +47,7 @@ inline std::ostream& operator<<(std::ostream& out, const impl_types& impl_type) 
         case impl_types::onednn: out << "onednn"; break;
         case impl_types::sycl: out << "sycl"; break;
         case impl_types::sycl_lz: out << "sycl_lz"; break;
+        case impl_types::cm: out << "cm"; break;
         case impl_types::any: out << "any"; break;
         default: out << "unknown"; break;
     }
@@ -64,6 +66,8 @@ inline std::istream& operator>>(std::istream& is, impl_types& impl_type) {
         impl_type = impl_types::ocl;
     } else if (str == "onednn") {
         impl_type = impl_types::onednn;
+    } else if (str == "cm") {
+        impl_type = impl_types::cm;
     } else if (str == "any") {
         impl_type = impl_types::any;
     } else {
@@ -107,8 +111,7 @@ inline std::ostream& operator<<(std::ostream& out, const shape_types& shape_type
 
 }  // namespace cldnn
 
-namespace ov {
-namespace intel_gpu {
+namespace ov::intel_gpu {
 
 struct ImplementationDesc {
     cldnn::format::type output_format;  ///< Output format.
@@ -135,5 +138,4 @@ inline std::ostream& operator<<(std::ostream& out, const ImplementationDesc& des
 
 using ImplForcingMap = std::map<cldnn::primitive_id, ImplementationDesc>;
 
-}  // namespace intel_gpu
-}  // namespace ov
+}  // namespace ov::intel_gpu

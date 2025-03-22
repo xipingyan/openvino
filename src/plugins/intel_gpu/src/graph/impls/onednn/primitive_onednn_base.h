@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2024 Intel Corporation
+// Copyright (C) 2018-2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -51,12 +51,11 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
         _engine(&engine),
         _attrs(attrs),
         _pd(pd) {
-            _enable_profiling = config.get_property(ov::enable_profiling);
+            _enable_profiling = config.get_enable_profiling();
 
             _scratchpad_md = _pd.scratchpad_desc();
 
-            GPU_DEBUG_GET_INSTANCE(debug_config);
-            GPU_DEBUG_IF(debug_config->verbose >= 4) {
+            GPU_DEBUG_IF(config.get_verbose() >= 4) {
                 if (_scratchpad_md.get_size() > 0) {
                     static std::atomic_llong total{0};
                     int64_t size = _scratchpad_md.get_size() / 1048576;
@@ -74,9 +73,8 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
         _engine(&engine),
         _pd(),
         _prim() {
-            _enable_profiling = config.get_property(ov::enable_profiling);
-            GPU_DEBUG_GET_INSTANCE(debug_config);
-            GPU_DEBUG_IF(!debug_config->dump_profiling_data.empty()) {
+            _enable_profiling = config.get_enable_profiling();
+            GPU_DEBUG_IF(!config.get_dump_profiling_data_path().empty()) {
                 _enable_profiling = true;
             }
         }
@@ -322,7 +320,7 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
 
 private:
     std::string get_cache_directory(const ExecutionConfig& config) const {
-        auto path = config.get_property(ov::cache_dir);
+        auto path = config.get_cache_dir();
         if (path.empty()) {
             return {};
         }
@@ -347,7 +345,7 @@ private:
     void build_primitive(const ExecutionConfig& config) {
         auto cache_outpath = get_cache_directory(config);
 
-        if (!config.get_property(ov::intel_gpu::allow_new_shape_infer)) {
+        if (!config.get_allow_new_shape_infer()) {
             cache_outpath = "";
         }
 
@@ -529,7 +527,8 @@ protected:
         _args[instance.get_network().get_id()] = get_arguments(instance, args);
     }
 
-    event::ptr execute_impl(const std::vector<event::ptr>& events, typed_primitive_inst<PType>& instance) override {
+    event::ptr execute_impl(const std::vector<event::ptr>& /* events */,
+                            typed_primitive_inst<PType>& instance) override {
         auto& network = instance.get_network();
         auto& stream = network.get_stream();
         auto net_id = network.get_id();
@@ -558,7 +557,7 @@ protected:
 #endif
             } catch (dnnl::error& err) {
                 auto err_code = err.status == dnnl_status_t::dnnl_out_of_memory ? CL_OUT_OF_RESOURCES : CL_INVALID_OPERATION;
-                ocl::rethrow_or_exit(err.what(), err_code, _engine->get_device_info());
+                ocl::rethrow(err.what(), err_code, _engine->get_device_info());
             }
 
             if (_enable_profiling) {
@@ -598,10 +597,10 @@ protected:
         return event;
     }
 
-    std::vector<layout> get_internal_buffer_layouts_impl() const override {
+    std::vector<BufferDescriptor> get_internal_buffer_descs(const kernel_impl_params&) const override {
         if (_scratchpad_md.get_size() == 0)
             return {};
-        return {{{1, 1, 1, (tensor::value_type)(_scratchpad_md.get_size())}, cldnn::data_types::u8, format::bfyx}};
+        return {BufferDescriptor(_scratchpad_md.get_size(), cldnn::data_types::u8)};
     }
 };
 
