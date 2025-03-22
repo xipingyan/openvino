@@ -333,7 +333,7 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
     using const_node_ptr = const std::shared_ptr<const ov::Node>;
 
     // Print src model
-    GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
+    GPU_DEBUG_IF(config.get_verbose() >= 1) {
         ov::pass::Manager manager("Plugin:GPU:PrintSrcModel");
         auto pass_config = manager.get_pass_config();
         manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
@@ -1231,16 +1231,13 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
         manager.run_passes(func);
     }
 
-    GPU_DEBUG_IF(cldnn::debug_configuration::get_instance()->verbose >= 1) {
+    GPU_DEBUG_IF(config.get_verbose() >= 1) {
         ov::pass::Manager manager("Plugin:GPU:PrintGPUModel");
         auto pass_config = manager.get_pass_config();
         manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
         pass_config->set_callback<ov::intel_gpu::PrintModelStatistics>([](const_node_ptr& node) -> bool {
             return true;  // means last
         });
-        GPU_DEBUG_IF(config.get_verbose() >= 1) {
-            manager.register_pass<ov::intel_gpu::PrintModelStatistics>();
-        }
         manager.run_passes(func);
     }
 }

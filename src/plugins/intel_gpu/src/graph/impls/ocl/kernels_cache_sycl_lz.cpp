@@ -140,24 +140,21 @@ void sycl_lz_kernels_cache::build_batch(const batch_program& batch, compiled_ker
     OV_ITT_SCOPED_TASK(ov::intel_gpu::itt::domains::intel_gpu_plugin, "sycl_lz_kernels_cache::build_batch");
 
     bool dump_sources = batch.dump_custom_program;
-    std::string dump_sources_dir = "";
-    GPU_DEBUG_GET_INSTANCE(debug_config);
-    GPU_DEBUG_IF(!debug_config->dump_sources.empty()) {
+    std::string dump_sources_dir = GPU_DEBUG_VALUE_OR(_config.get_dump_sources_path(), "");
+    GPU_DEBUG_IF(!dump_sources_dir.empty()) {
         dump_sources = true;
-        dump_sources_dir = debug_config->dump_sources;
     }
 
     std::string err_log;  // accumulated build log from all program's parts (only contains messages from parts which
 
     std::string current_dump_file_name = "";
     if (dump_sources) {
-        current_dump_file_name = dump_sources_dir;
+        current_dump_file_name = std::move(dump_sources_dir);
         if (!current_dump_file_name.empty() && current_dump_file_name.back() != '/')
             current_dump_file_name += '/';
 
-        current_dump_file_name += "SYCL_LZ_program_" + std::to_string(_prog_id) + "_bucket_" +
-                                  std::to_string(batch.bucket_id) + "_part_" + std::to_string(batch.batch_id) + "_" +
-                                  std::to_string(batch.hash_value) + ".cl";
+        current_dump_file_name += "SYCL_LZ_program_" + std::to_string(_prog_id) + "_bucket_" + std::to_string(batch.bucket_id)
+                               + "_part_" + std::to_string(batch.batch_id) + "_" + std::to_string(batch.hash_value) + ".cl";
     }
 
     std::ofstream dump_file;

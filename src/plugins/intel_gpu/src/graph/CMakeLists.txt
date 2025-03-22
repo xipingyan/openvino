@@ -4,23 +4,10 @@
 
 set(TARGET_NAME "openvino_intel_gpu_graph")
 
-file(GLOB_RECURSE SYCL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/impls/sycl/*")
-file(GLOB_RECURSE SYCL_LZ_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/impls/sycl_lz/*")
-file(GLOB_RECURSE LIBRARY_SRC
-    "${INCLUDE_DIR}/*.h"
-    "${INCLUDE_DIR}/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-  )
 file(GLOB SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/impls/*")
 
 find_host_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-if(NOT OV_COMPILER_IS_INTEL_LLVM)
-    list(REMOVE_ITEM LIBRARY_SRC ${SYCL_SOURCES})
-    list(REMOVE_ITEM LIBRARY_SRC ${SYCL_LZ_SOURCES})
-endif()
 foreach(SUBDIR IN LISTS SUBDIRS)
     if(IS_DIRECTORY ${SUBDIR})
         get_filename_component(SUBDIR_NAME ${SUBDIR} NAME)
@@ -48,22 +35,6 @@ set(COMMON_LINK_LIBRARIES openvino::shape_inference # for tensor accessor
 define_property(GLOBAL PROPERTY EXTRA_LINK_LIBRARIES_GLOBAL BRIEF_DOCS "All link libs" FULL_DOCS "Link libraries collection from all backends")
 set_property(GLOBAL PROPERTY EXTRA_LINK_LIBRARIES_GLOBAL "")
 
-if(OV_COMPILER_IS_INTEL_LLVM)
-    add_sycl_to_target(TARGET ${TARGET_NAME} SOURCES ${SYCL_SOURCES} ${SYCL_LZ_SOURCES})
-    target_compile_definitions(${TARGET_NAME} PUBLIC OV_GPU_WITH_SYCL)
-endif()
-
-if(OV_GPU_WITH_SYCL_LZ)
-    target_compile_definitions(${TARGET_NAME} PUBLIC OV_GPU_WITH_SYCL_LZ)
-endif()
-
-target_link_libraries(${TARGET_NAME} PUBLIC OpenCL::OpenCL openvino::shape_inference)
-target_link_libraries(${TARGET_NAME} PRIVATE openvino_intel_gpu_kernels
-                                             openvino_intel_gpu_runtime
-                                             openvino::itt
-                                             openvino::reference
-                                             openvino::runtime::dev
-                                             openvino::runtime)
 macro(ov_gpu_add_backend_target)
     set(options
     )

@@ -20,7 +20,7 @@ sycl_lz_engine::sycl_lz_engine(const device::ptr dev, runtime_types runtime_type
 
     auto casted_dev = dynamic_cast<sycl_lz::sycl_lz_device*>(_device.get());
     auto device = casted_dev->get_device();
-    sycl_context = cldnn::make_unique<::sycl::context>(device);
+    sycl_context = std::make_unique<::sycl::context>(device);
 
     _service_stream.reset(new sycl_lz_stream(*this, ExecutionConfig()));
 }
@@ -87,6 +87,39 @@ memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type
 memory_ptr sycl_lz_engine::reinterpret_handle(const layout& new_layout, shared_mem_params params) {
     GPU_DEBUG_LOG << "Not implemented." << std::endl;
     return nullptr;
+}
+memory::ptr sycl_lz_engine::create_subbuffer(const memory& memory, const layout& new_layout, size_t byte_offset) {
+    OPENVINO_ASSERT(memory.get_engine() == this, "[GPU] trying to create a subbuffer from a buffer allocated by a different engine");
+    try {
+        if (new_layout.format.is_image_2d()) {
+            OPENVINO_NOT_IMPLEMENTED;
+        } else if (memory_capabilities::is_usm_type(memory.get_allocation_type())) {
+            auto& new_buf = reinterpret_cast<const sycl_lz::gpu_usm&>(memory);
+            auto ptr = new_buf.get_buffer().get();
+
+            auto sub_buffer = ::sycl_lz::UsmMemory(get_usm_helper(), ptr, byte_offset);
+
+            return std::make_shared<sycl_lz::gpu_usm>(this,
+                                     new_layout,
+                                     sub_buffer,
+                                     memory.get_allocation_type(),
+                                     memory.get_mem_tracker());
+        } else {
+            // auto buffer = reinterpret_cast<const sycl_lz::gpu_buffer&>(memory).get_buffer();
+            // cl_buffer_region sub_buffer_region = { byte_offset, new_layout.get_linear_size() };
+            // auto sub_buffer = buffer.createSubBuffer(CL_MEM_READ_WRITE| CL_MEM_USE_HOST_PTR,
+            //                 CL_BUFFER_CREATE_TYPE_REGION, &sub_buffer_region);
+
+            // return std::make_shared<ocl::gpu_buffer>(this,
+            //                          new_layout,
+            //                          sub_buffer,
+            //                          memory.get_mem_tracker());
+            GPU_DEBUG_LOG << "Not implemented. gpu_buffer " << std::endl;
+            return nullptr;
+        }
+    } catch (::sycl::exception& e) {
+        OPENVINO_THROW("[GPU] create_subbuffer failed: ", e.what());
+    }
 }
 memory_ptr sycl_lz_engine::reinterpret_buffer(const memory& memory, const layout& new_layout) {
     OPENVINO_ASSERT(memory.get_engine() == this, "[GPU] trying to reinterpret buffer allocated by a different engine");
@@ -236,7 +269,7 @@ void sycl_lz_engine::create_onednn_engine(const ExecutionConfig& config)  {
     OPENVINO_ASSERT(_device->get_info().vendor_id == INTEL_VENDOR_ID, "[GPU] OneDNN engine can be used for Intel GPUs only");
 
     if (!_onednn_engine) {
-        std::string cache_dir = config.get_property(ov::cache_dir);
+        const auto& cache_dir = config.get_cache_dir();
         if (!cache_dir.empty()) {
             GPU_DEBUG_LOG << "Not implemented. oneDNN sycl_interop don't support make_engine from cache." << std::endl;
         }

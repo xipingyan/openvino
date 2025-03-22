@@ -6,8 +6,8 @@
 #ifndef NOMINMAX
 # define NOMINMAX
 #endif
-#include "gpu/intel/jit/jit_generator.hpp"
-#include "gpu/intel/jit/ngen/ngen_level_zero.hpp"
+#include "gpu/intel/jit/generator.hpp"
+#include "ngen_level_zero.hpp"
 #endif  // ENABLE_ONEDNN_FOR_GPU
 
 #include "sycl_lz_common.hpp"
@@ -316,8 +316,6 @@ device_info init_device_info(const sycl::device& device) {
     info.supports_usm = cl_extensions.find("cl_intel_unified_shared_memory ") != std::string::npos ||
                         cl_extensions.find("cl_intel_unified_shared_memory_preview ") != std::string::npos;
 
-    info.supports_local_block_io = in_extensions("cl_intel_subgroup_local_block_io");
-
     info.supports_queue_families = in_extensions("cl_intel_command_queue_families");
 
     if (info.supports_intel_required_subgroup_size) {
@@ -362,9 +360,6 @@ device_info init_device_info(const sycl::device& device) {
         GPU_DEBUG_INFO << "GPU version: "
             << static_cast<int>(info.gfx_ver.major) << "." << static_cast<int>(info.gfx_ver.minor) << "." << static_cast<int>(info.gfx_ver.revision)
             << (info.has_separate_cache ? " with separate cache" : "") << std::endl;
-        GPU_DEBUG_GET_INSTANCE(debug_config);
-        GPU_DEBUG_IF(debug_config->disable_onednn)
-            info.supports_immad = false;
 
         GPU_DEBUG_LOG << "info.supports_immad = " << info.supports_immad << std::endl;
 
@@ -479,6 +474,10 @@ bool sycl_lz_device::is_same(const device::ptr other) {
         return false;
 
     return _device == casted->get_device() && _platform == casted->get_platform();
+}
+
+void sycl_lz_device::set_mem_caps(memory_capabilities memory_capabilities) {
+    _mem_caps = memory_capabilities;
 }
 
 }  // namespace sycl_lz

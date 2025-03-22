@@ -20,23 +20,23 @@ namespace cldnn {
 namespace sycl_lz {
 
 sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConfig& config)
-    : stream(config.get_property(ov::intel_gpu::queue_type), stream::get_expected_sync_method(config)),
+    : stream(config.get_queue_type(), stream::get_expected_sync_method(config)),
       _engine(engine) {
     // : ocl_stream(engine, config) {
     auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
     OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
 
-    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_context(), dev->get_device(), _prop);
+    sycl_queue = std::make_unique<::sycl::queue>(dev->get_context(), dev->get_device(), _prop);
     GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 
 sycl_lz_stream::sycl_lz_stream(const sycl_lz_engine& engine, const ExecutionConfig& config, void* handle)
-    : stream(config.get_property(ov::intel_gpu::queue_type), stream::get_expected_sync_method(config)),
+    : stream(config.get_queue_type(), stream::get_expected_sync_method(config)),
       _engine(engine) {
     auto dev = std::dynamic_pointer_cast<sycl_lz_device>(engine.get_device());
     OPENVINO_ASSERT(dev, "Cast to sycl_lz_device fail.");
 
-    sycl_queue = cldnn::make_unique<::sycl::queue>(dev->get_context(), dev->get_device(), _prop);
+    sycl_queue = std::make_unique<::sycl::queue>(dev->get_context(), dev->get_device(), _prop);
     GPU_DEBUG_LOG << "== sycl_lz_stream::sycl_lz_stream, create sycl_queue" << std::endl;
 }
 

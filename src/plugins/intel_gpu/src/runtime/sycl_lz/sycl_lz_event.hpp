@@ -8,7 +8,6 @@
 #include <memory>
 #include <vector>
 
-#include "intel_gpu/runtime/optionals.hpp"
 #include "sycl_lz_base_event.hpp"
 #include "sycl_lz_common.hpp"
 
@@ -42,7 +41,7 @@ private:
 
 protected:
     sycl::event _event;
-    optional_value<uint64_t> duration_nsec;
+    std::optional<uint64_t> duration_nsec;
 };
 
 struct sycl_lz_events : public sycl_lz_base_event {

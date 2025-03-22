@@ -19,7 +19,7 @@ struct gemm_sycl_lz : typed_primitive_sycl_lz_impl<gemm> {
     DECLARE_OBJECT_TYPE_SERIALIZATION(cldnn::sycl_lz::gemm_sycl_lz)
 
     std::unique_ptr<primitive_impl> clone() const override {
-        return make_unique<gemm_sycl_lz>(*this);
+        return std::make_unique<gemm_sycl_lz>(*this);
     }
 
     event::ptr execute_impl(const std::vector<event::ptr>& /* events */,
@@ -142,7 +142,7 @@ struct gemm_sycl_lz : typed_primitive_sycl_lz_impl<gemm> {
     static std::unique_ptr<primitive_impl> create(const gemm_node& arg, const kernel_impl_params& impl_params) {
         auto& engine = impl_params.prog->get_engine();
         auto& config = impl_params.prog->get_config();
-        return cldnn::make_unique<gemm_sycl_lz>(engine, config, get_weights_reorder(impl_params));
+        return std::make_unique<gemm_sycl_lz>(engine, config, get_weights_reorder(impl_params));
     }
 };
 

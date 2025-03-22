@@ -22,10 +22,6 @@
 #endif
 
 namespace {
-static const char create_device_error_msg[] =
-    "[GPU] No supported OCL devices found or unexpected error happened during devices query.\n"
-    "[GPU] Please check OpenVINO documentation for GPU drivers setup guide.\n";
-
 std::vector<std::string> split(const std::string& s, char delim) {
     std::vector<std::string> result;
     std::stringstream ss(s);
@@ -165,7 +161,7 @@ std::vector<device::ptr> sycl_lz_device_detector::create_device_list() const {
                 continue;
             }
 
-            if (!one_of(platform.get_info<sycl::info::platform::name>(), INTEL_PLATFORM_NAME_2024, INTEL_PLATFORM_NAME_2025)) {
+            if (!one_of(platform.get_info<sycl::info::platform::name>(), {INTEL_PLATFORM_NAME_2024, INTEL_PLATFORM_NAME_2025})) {
                 continue;
             }
 

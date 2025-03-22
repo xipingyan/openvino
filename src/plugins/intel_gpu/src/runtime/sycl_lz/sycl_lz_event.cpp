@@ -16,17 +16,17 @@ using namespace cldnn;
 using namespace cldnn::sycl_lz;
 
 namespace {
-bool is_event_profiled(const sycl::event& event) {
-    GPU_DEBUG_LOG << "Not implemented. is_event_profiled" << std::endl;
-    // if (sycl::event() != nullptr) {
-    //     auto queue = event.getInfo<CL_EVENT_COMMAND_QUEUE>();
-    //     if (queue() != nullptr) {
-    //         return (queue.getInfo<CL_QUEUE_PROPERTIES>() & CL_QUEUE_PROFILING_ENABLE) != 0;
-    //     }
-    // }
-    return false;
-}
-
+// bool is_event_profiled(const sycl::event& event) {
+//     GPU_DEBUG_LOG << "Not implemented. is_event_profiled" << std::endl;
+//     if (sycl::event() != nullptr) {
+//         auto queue = event.getInfo<CL_EVENT_COMMAND_QUEUE>();
+//         if (queue() != nullptr) {
+//             return (queue.getInfo<CL_QUEUE_PROPERTIES>() & CL_QUEUE_PROFILING_ENABLE) != 0;
+//         }
+//     }
+//     return false;
+// }
+//
 // instrumentation::profiling_interval get_profiling_interval(instrumentation::profiling_stage stage,
 //                                                            cl_ulong start,
 //                                                            cl_ulong end) {
@@ -226,7 +226,6 @@ bool sycl_lz_events::get_profiling_info_impl(std::list<instrumentation::profilin
     //         sum += (duration.second - duration.first);
     //     }
 
-    //     GPU_DEBUG_GET_INSTANCE(debug_config);
     //     GPU_DEBUG_IF(debug_config->print_multi_kernel_perf) {
     //         if (period.stage == instrumentation::profiling_stage::executing) {
     //             GPU_DEBUG_TRACE << "Multi-kernel time: ";

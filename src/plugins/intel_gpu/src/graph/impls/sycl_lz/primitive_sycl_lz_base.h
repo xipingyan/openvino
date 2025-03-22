@@ -6,7 +6,7 @@
 
 #include "primitive_inst.h"
 #include "intel_gpu/runtime/memory.hpp"
-#include "impls/registry/registry.hpp"
+#include "registry/registry.hpp"
 
 #include <vector>
 
@@ -41,11 +41,6 @@ protected:
 
     void set_arguments_impl(typed_primitive_inst<PType>& instance) override { }
     void set_arguments_impl(typed_primitive_inst<PType>& instance, kernel_arguments_data& args) override { }
-
-    std::vector<layout> get_internal_buffer_layouts_impl() const override {
-        GPU_DEBUG_LOG << "== Not Implemented. get_internal_buffer_layouts_impl." << std::endl;
-        return {};
-    }
 };
 
 }  // namespace sycl_lz

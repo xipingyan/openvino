@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "fully_connected_inst.h"
-#include "impls/registry/implementation_manager.hpp"
+#include "registry/implementation_manager.hpp"
 #include "intel_gpu/primitives/fully_connected.hpp"
 #include "intel_gpu/runtime/utils.hpp"
 #include "primitive_sycl_lz_base.h"
@@ -155,7 +155,7 @@ struct fully_connected_sycl_lz : typed_primitive_sycl_lz_impl<fully_connected> {
 
 protected:
     std::unique_ptr<primitive_impl> clone() const override {
-        return make_unique<fully_connected_sycl_lz>(*this);
+        return std::make_unique<fully_connected_sycl_lz>(*this);
     }
 
     std::unordered_map<int, dnnl::memory> get_arguments(fully_connected_inst& instance) const {
@@ -418,7 +418,7 @@ public:
         GPU_DEBUG_LOG << "fully_connected_sycl_lz::create" << std::endl;
         auto& engine = impl_params.prog->get_engine();
         auto& config = impl_params.prog->get_config();
-        return cldnn::make_unique<fully_connected_sycl_lz>(engine, config, get_weights_reorder(impl_params));
+        return std::make_unique<fully_connected_sycl_lz>(engine, config, get_weights_reorder(impl_params));
     }
 };
 

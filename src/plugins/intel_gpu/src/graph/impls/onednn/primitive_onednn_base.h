@@ -6,26 +6,29 @@
 
 #define ONEDNN_PRIMITIVE_SERIALIZATION
 
-#include <oneapi/dnnl/dnnl.hpp>
-#include <utility>
-#include <vector>
-
-#include "impls/ocl/kernel_selector_helper.h"
-#include "impls/registry/registry.hpp"
-#include "intel_gpu/graph/serialization/binary_buffer.hpp"
-#include "intel_gpu/primitives/reorder.hpp"
-#include "intel_gpu/runtime/file_util.hpp"
-#include "intel_gpu/runtime/memory.hpp"
 #include "primitive_inst.h"
-#include "runtime/ocl/ocl_event.hpp"
+#include "intel_gpu/graph/serialization/binary_buffer.hpp"
+#include "intel_gpu/runtime/memory.hpp"
+#include "intel_gpu/runtime/file_util.hpp"
 #include "to_string_utils.h"
 #include "utils.hpp"
+#include "runtime/ocl/ocl_event.hpp"
+
+#include "intel_gpu/primitives/reorder.hpp"
+
+#include "impls/ocl/kernel_selector_helper.h"
+
 #if OV_GPU_WITH_SYCL_LZ
 #    include "oneapi/dnnl/dnnl.hpp"
 #    include "oneapi/dnnl/dnnl_debug.h"
 #    include "oneapi/dnnl/dnnl_sycl.hpp"
 #    include "runtime/sycl_lz/sycl_lz_stream.hpp"
 #endif
+
+#include <vector>
+#include <utility>
+
+#include <oneapi/dnnl/dnnl.hpp>
 
 namespace cldnn {
 namespace onednn {

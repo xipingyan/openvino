@@ -56,7 +56,7 @@ std::mutex cacheAccessMutex;
 
 static const cldnn::device::ptr get_target_device(const cldnn::engine& engine) {
     using namespace cldnn;
-    if (one_of(engine.runtime_type(), runtime_types::ocl, runtime_types::sycl_lz)) {
+    if (one_of(engine.runtime_type(), {runtime_types::ocl, runtime_types::sycl_lz})) {
         GPU_DEBUG_LOG << "get_target_device = " << engine.runtime_type() << std::endl;
         return engine.get_device();
     } else {
