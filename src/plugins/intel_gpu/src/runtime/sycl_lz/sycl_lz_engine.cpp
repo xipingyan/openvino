@@ -66,7 +66,9 @@ memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type
             // res = std::make_shared<ocl::gpu_image2d>(this, layout);
         } else if (type == allocation_type::cl_mem) {
             GPU_DEBUG_LOG << "Not implemented. layout.format = " << layout.format << std::endl;
-            // res = std::make_shared<ocl::gpu_buffer>(this, layout);
+            // res = std::make_shared<sycl_lz::gpu_buffer>(this, layout);
+            // Remote tensor need it. just use usm replace it.
+            res = std::make_shared<sycl_lz::gpu_usm>(this, layout, allocation_type::usm_device);
         } else {
             res = std::make_shared<sycl_lz::gpu_usm>(this, layout, type);
         }

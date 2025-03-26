@@ -79,7 +79,7 @@ static constexpr const char* prefix = "GPU_Debug: ";
                                    << color::cyan << __func__ << ": " << color::reset
 
 #define GPU_DEBUG_LOG_RAW_INT(min_verbose_level) if (ov::intel_gpu::ExecutionConfig::get_verbose() >= min_verbose_level) \
-    (ov::intel_gpu::ExecutionConfig::get_verbose_color() ? GPU_DEBUG_LOG_COLOR_PREFIX : GPU_DEBUG_LOG_PREFIX)
+    (GPU_DEBUG_LOG_PREFIX)
 
 #define GPU_DEBUG_LOG_RAW(min_verbose_level) \
     GPU_DEBUG_LOG_RAW_INT(static_cast<std::underlying_type_t<ov::intel_gpu::LogLevel>>(min_verbose_level))
