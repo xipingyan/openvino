@@ -36,6 +36,28 @@ struct typed_primitive_sycl_lz_impl : public typed_primitive_impl<PType> {
     bool is_cpu() const override { return false; }
     bool is_onednn() const override { return false; }
 
+    template <typename ImplType>
+    static std::unique_ptr<ImplType> make_deep_copy(const ImplType* impl) {
+        auto copy = std::make_unique<ImplType>();  // Use default c-tor to initialize stages
+        copy->_order = impl->_order;
+        copy->m_rt_params = nullptr;  // don't copy RT params
+        copy->m_manager = impl->m_manager;
+        copy->can_reuse_memory = impl->can_reuse_memory;
+        copy->can_share_kernels = impl->can_share_kernels;
+        copy->_weights_reorder_params = impl->_weights_reorder_params;
+        copy->_kernel_name = impl->_kernel_name;
+        copy->_is_dynamic = impl->_is_dynamic;
+
+        for (size_t i = 0; i < copy->_stages.size(); i++) {
+            copy->_stages[i]->kd = impl->_stages[i]->kd;
+            if (impl->_stages[i]->kernel) {
+                copy->_stages[i]->kernel = impl->_stages[i]->kernel->clone();
+            }
+        }
+
+        return copy;
+    }
+
 protected:
     void init_kernels(const kernels_cache&, const kernel_impl_params&) override { }
 

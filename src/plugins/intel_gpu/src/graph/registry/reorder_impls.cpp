@@ -13,6 +13,9 @@
 #if OV_GPU_WITH_OCL
     #include "impls/ocl/reorder.hpp"
 #endif
+#if OV_GPU_WITH_SYCL_LZ
+#    include "impls/sycl_lz/reorder.hpp"
+#endif
 
 namespace ov::intel_gpu {
 
@@ -28,6 +31,8 @@ static std::vector<format> supported_dyn_formats = {
 const std::vector<std::shared_ptr<cldnn::ImplementationManager>>& Registry<reorder>::get_implementations() {
     static const std::vector<std::shared_ptr<ImplementationManager>> impls = {
         OV_GPU_CREATE_INSTANCE_ONEDNN(onednn::ReorderImplementationManager, shape_types::static_shape, not_in_shape_flow())
+        OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::ReorderImplementationManager, shape_types::static_shape, not_in_shape_flow())
+        OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::ReorderImplementationManager, shape_types::dynamic_shape)
         OV_GPU_CREATE_INSTANCE_OCL(ocl::ReorderImplementationManager, shape_types::static_shape, not_in_shape_flow())
         OV_GPU_CREATE_INSTANCE_OCL(ocl::ReorderImplementationManager, shape_types::dynamic_shape,
             [](const program_node& node) {
