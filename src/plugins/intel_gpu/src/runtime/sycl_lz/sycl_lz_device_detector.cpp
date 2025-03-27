@@ -22,16 +22,6 @@
 #endif
 
 namespace {
-std::vector<std::string> split(const std::string& s, char delim) {
-    std::vector<std::string> result;
-    std::stringstream ss(s);
-    std::string item;
-
-    while (getline(ss, item, delim)) {
-        result.push_back(item);
-    }
-    return result;
-}
 
 // The priority return by this function impacts the order of devices reported by GPU plugin and devices enumeration
 // Lower priority value means lower device ID

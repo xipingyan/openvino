@@ -12,4 +12,6 @@ ov_gpu_add_backend_target(
     NAME ${TARGET_NAME}
 )
 
-add_sycl_to_target(TARGET ${TARGET_NAME})
+file(GLOB_RECURSE SYCL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*")
+
+add_sycl_to_target(TARGET ${TARGET_NAME} SOURCES ${SYCL_SOURCES})
