@@ -52,12 +52,9 @@ const ::sycl_lz::UsmHelper& sycl_lz_engine::get_usm_helper() const {
 memory_ptr sycl_lz_engine::allocate_memory(const layout& layout, allocation_type type, bool reset) {
     OPENVINO_ASSERT(!layout.is_dynamic() || layout.has_upper_bound(), "[GPU] Can't allocate memory for dynamic layout");
 
-    check_allocatable(layout, type);
-
-    // Todo refer: memory::ptr ocl_engine::allocate_memory(const layout& layout, allocation_type type, bool reset)
     GPU_DEBUG_LOG << "layout=" << layout << ", type=" << type << ", reset = " << reset << std::endl;
 
-    // auto X = sycl::malloc_shared<float>(length, q);
+    check_allocatable(layout, type);
 
     try {
         memory::ptr res = nullptr;
@@ -190,8 +187,6 @@ bool sycl_lz_engine::check_allocatable(const layout& layout, allocation_type typ
         OPENVINO_ASSERT(layout.has_upper_bound(), "[GPU] Dynamic shape without upper bound tries to allocate");
         return false;
     }
-
-    GPU_DEBUG_LOG << "layout = " << layout << std::endl;
 
     OPENVINO_ASSERT(!exceed_allocatable_mem_size,
                     "[GPU] Exceeded max size of memory object allocation: ",

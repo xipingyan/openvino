@@ -25,6 +25,7 @@ struct ReorderImplementationManager : public ImplementationManager {
         if (output_fmt == format::custom)
             return false;
 
+        std::cout << "reorder::validate_impl return true." << std::endl;
         return true;
     }
 };

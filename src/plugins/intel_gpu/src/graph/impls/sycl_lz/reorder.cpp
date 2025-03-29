@@ -52,6 +52,7 @@ protected:
     //     // return args;
     // }
     event::ptr execute_impl(const std::vector<event::ptr>& /* events */, typed_primitive_inst<reorder>& instance) override {
+        std::cout << "Reorder: ------------>" << std::endl;
         return nullptr;
     }
 
@@ -187,4 +188,3 @@ std::unique_ptr<primitive_impl> ReorderImplementationManager::create_impl(const 
 }  // namespace cldnn
 
 BIND_BINARY_BUFFER_WITH_TYPE(cldnn::sycl_lz::reorder_impl)
-BIND_BINARY_BUFFER_WITH_TYPE(cldnn::reorder)
