@@ -81,6 +81,7 @@
 #include "impls/ocl/kernels_cache_sycl_lz.hpp"
 
 // TODO: implement self-registration for impls
+#include "impls/sycl_lz/register.hpp"
 #include "impls/ocl/register.hpp"
 #include "impls/cpu/register.hpp"
 #include "impls/common/register.hpp"
@@ -271,6 +272,7 @@ void program::init_primitives() {
     static bool is_initialized = false;
     if (!is_initialized) {
         common::register_implementations();
+        sycl_lz::register_implementations();
         ocl::register_implementations();
         cpu::register_implementations();
         is_initialized = true;
