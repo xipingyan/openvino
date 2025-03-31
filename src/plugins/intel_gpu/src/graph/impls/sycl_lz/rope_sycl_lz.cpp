@@ -3,7 +3,6 @@
 //
 
 #include "primitive_sycl_lz_base.h"
-#include "register.hpp"
 #include "rope_inst.h"
 
 namespace cldnn {
@@ -110,18 +109,6 @@ struct rope_impl : typed_primitive_sycl_lz_impl<rope> {
         return nullptr;
     }
 };
-
-namespace detail {
-
-attach_rope_impl::attach_rope_impl() {
-    auto types = {data_types::f32, data_types::f16};
-
-    auto formats = {format::bfyx};
-
-    implementation_map<rope>::add(impl_types::sycl_lz, shape_types::any, typed_primitive_sycl_lz_impl<rope>::create<rope_impl>, types, formats);
-}
-
-}  // namespace detail
 }  // namespace sycl_lz
 }  // namespace cldnn
 
