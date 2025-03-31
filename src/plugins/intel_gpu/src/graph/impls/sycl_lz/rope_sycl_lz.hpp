@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "fully_connected_inst.h"
+#include "rope_inst.h"
 #include "registry/implementation_manager.hpp"
-#include "intel_gpu/primitives/fully_connected.hpp"
+#include "intel_gpu/primitives/rope.hpp"
 #include "intel_gpu/runtime/utils.hpp"
 
 namespace cldnn {

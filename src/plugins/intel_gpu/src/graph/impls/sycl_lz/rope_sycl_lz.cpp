@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "rope_sycl_lz.hpp"
+
 #include "primitive_sycl_lz_base.h"
 #include "rope_inst.h"
+#include "runtime/sycl_lz/sycl_lz_engine.hpp"
+#include "runtime/sycl_lz/sycl_lz_stream.hpp"
 
 namespace cldnn {
 namespace sycl_lz {
@@ -19,9 +23,7 @@ struct rope_impl : typed_primitive_sycl_lz_impl<rope> {
     DECLARE_OBJECT_TYPE_SERIALIZATION(cldnn::sycl_lz::rope_impl);
 
     std::unique_ptr<primitive_impl> clone() const override {
-        // return make_deep_copy<rope_impl, kernel_params_t>(*this);
-        DEBUG_POS("Not implemented.");
-        return nullptr;
+        return std::make_unique<rope_impl>(*this);
     }
 
     void load(BinaryInputBuffer& ib) override {
@@ -104,11 +106,37 @@ struct rope_impl : typed_primitive_sycl_lz_impl<rope> {
     //     (_kernel_data.update_dispatch_data_func)(*_kernel_data.params, _kernel_data);
     // }
 
+    static std::unique_ptr<primitive_impl> create(const rope_node& arg,
+                                                  const kernel_impl_params& impl_params) {
+        GPU_DEBUG_LOG << "rope_impl::create" << std::endl;
+        auto& engine = impl_params.prog->get_engine();
+        auto& config = impl_params.prog->get_config();
+        return std::make_unique<rope_impl>(engine, config);
+        // return std::make_unique<rope_impl>(engine, config, get_weights_reorder(impl_params));
+        // return nullptr;
+    }
+
     event::ptr execute_impl(const std::vector<event::ptr>& /* events */, typed_primitive_inst<rope>& instance) override {
-        DEBUG_POS("Not implemented.");
-        return nullptr;
+        GPU_DEBUG_LOG << "Temp solution. rope_impl::execute_impl" << std::endl;
+        auto& network = instance.get_network();
+        const auto& desc = instance.get_typed_desc<rope>();
+
+        auto& stream = downcast<sycl_lz::sycl_lz_stream>(network.get_stream());
+        auto& engine = downcast<sycl_lz::sycl_lz_engine>(network.get_engine());
+        ::sycl::context sycl_context = engine.get_sycl_context();
+        ::sycl::queue& sycl_queue = stream.get_sycl_queue();
+
+        return stream.create_base_event(sycl::event());
     }
 };
+
+std::unique_ptr<primitive_impl> RoPEImplementationManager::create_impl(
+    const program_node& node,
+    const kernel_impl_params& params) const {
+    assert(node.is_type<fully_connected>());
+    return sycl_lz::rope_impl::create(static_cast<const rope_node&>(node), params);
+}
+
 }  // namespace sycl_lz
 }  // namespace cldnn
 
