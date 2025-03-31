@@ -24,12 +24,7 @@ const std::vector<std::shared_ptr<cldnn::ImplementationManager>>& Registry<rope>
         OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::RoPEImplementationManager, shape_types::static_shape)
         OV_GPU_CREATE_INSTANCE_SYCL_LZ(sycl_lz::RoPEImplementationManager, shape_types::dynamic_shape)
         OV_GPU_GET_INSTANCE_OCL(rope, shape_types::static_shape)
-        OV_GPU_GET_INSTANCE_OCL(rope, shape_types::dynamic_shape,
-            [](const program_node& node) {
-                if (node.can_use(impl_types::onednn))
-                    return false;
-                return node.get_output_pshape().size() <= 3;
-        })
+        OV_GPU_GET_INSTANCE_OCL(rope, shape_types::dynamic_shape)
     };
 
     return impls;
