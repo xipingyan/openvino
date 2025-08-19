@@ -172,17 +172,21 @@ void CreateCustomOp(ProgramBuilder& p, const std::shared_ptr<ov::Node>& op, Cust
     auto dims = op->get_output_partial_shape(0);
     int iidx = customLayer->InputDimSourceIndex();
 
-    size_t N = (dims.size() > 0) ? dims[0].is_dynamic() ? -1 : dims[0].get_length() : 1;
-    size_t C = (dims.size() > 1) ? dims[1].is_dynamic() ? -1 : dims[1].get_length() : 1;
-    size_t H = (dims.size() > 2) ? dims[2].is_dynamic() ? -1 : dims[2].get_length() : 1;
-    size_t W = (dims.size() > 3) ? dims[3].is_dynamic() ? -1 : dims[3].get_length() : 1;
-
-    cldnn::layout outputLayout;
+    std::vector<cldnn::layout> outputLayouts;
     if (dims.is_dynamic()) {
-        outputLayout = cldnn::layout(dims, cldnn::element_type_to_data_type(op->get_output_element_type(0)), outputFormat);
+        for (size_t i = 0; i < op->get_output_size(); i++) {
+            outputLayouts.push_back(cldnn::layout(dims, cldnn::element_type_to_data_type(op->get_output_element_type(i)), outputFormat));
+        }
     } else {
-        cldnn::tensor outputTensor = cldnn::tensor(cldnn::batch(N), cldnn::feature(C), cldnn::spatial(W, H));
-        outputLayout = cldnn::layout(cldnn::element_type_to_data_type(op->get_output_element_type(0)), outputFormat, outputTensor);
+        for (size_t i = 0; i < op->get_output_size(); i++) {
+            auto cur_dims = op->get_output_partial_shape(i);
+            size_t N = (cur_dims.size() > 0) ? cur_dims[0].is_dynamic() ? -1 : cur_dims[0].get_length() : 1;
+            size_t C = (cur_dims.size() > 1) ? cur_dims[1].is_dynamic() ? -1 : cur_dims[1].get_length() : 1;
+            size_t H = (cur_dims.size() > 2) ? cur_dims[2].is_dynamic() ? -1 : cur_dims[2].get_length() : 1;
+            size_t W = (cur_dims.size() > 3) ? cur_dims[3].is_dynamic() ? -1 : cur_dims[3].get_length() : 1;
+            cldnn::tensor outputTensor = cldnn::tensor(cldnn::batch(N), cldnn::feature(C), cldnn::spatial(W, H));
+            outputLayouts.push_back(cldnn::layout(cldnn::element_type_to_data_type(op->get_output_element_type(i)), outputFormat, outputTensor));
+        }
     }
 
     std::vector<size_t> gws, lws;
@@ -219,7 +223,7 @@ void CreateCustomOp(ProgramBuilder& p, const std::shared_ptr<ov::Node>& op, Cust
                                                   customLayer->KernelEntry(),
                                                   kernelParameters,
                                                   customLayer->CompilerOptions(),
-                                                  outputLayout,
+                                                  outputLayouts,
                                                   gws,
                                                   lws,
                                                   op_bk,
@@ -229,14 +233,16 @@ void CreateCustomOp(ProgramBuilder& p, const std::shared_ptr<ov::Node>& op, Cust
     p.add_primitive(*op, customPrim);
 
     auto prevLayerName = genericLayerName;
-    if (outputLayout.format != cldnn::format::any) {
-        // Handle output reorder
-        auto reorderPrimName = genericLayerName + ProgramBuilder::m_postCustomLayerTag;
-        p.add_primitive(*op, cldnn::reorder(reorderPrimName,
-                                            cldnn::input_info(genericLayerName),
-                                            cldnn::format::get_default_format(op->get_output_partial_shape(0).size()),
-                                            customPrim.output_layout.data_type));
-        prevLayerName = reorderPrimName;
+    for (size_t i = 0; i < op->get_output_size(); i++) {
+        if (outputLayouts[i].format != cldnn::format::any) {
+            // Handle output reorder
+            auto reorderPrimName = genericLayerName + ProgramBuilder::m_postCustomLayerTag;
+            p.add_primitive(*op, cldnn::reorder(reorderPrimName,
+                                                cldnn::input_info(genericLayerName),
+                                                cldnn::format::get_default_format(op->get_output_partial_shape(i).size()),
+                                                customPrim.output_layouts[i].data_type));
+            prevLayerName += reorderPrimName;
+        }
     }
 }
 
