@@ -45,7 +45,7 @@ protected:
 
     [[nodiscard]] JitConstants make_base_jit_constants(const RuntimeParams& params) const;
     [[nodiscard]] static JitConstants make_tensors_jit_constants(const RuntimeParams& params);
-    [[nodiscard]] static std::string build_code(std::string_view template_name, const JitConstants& jit_constants, const std::string& entry_point);
+    [[nodiscard]] virtual std::string build_code(std::string_view template_name, const JitConstants& jit_constants, const std::string& entry_point) const;
     static void add_fused_ops_arguments(Arguments& args, const RuntimeParams& params);
 
     [[nodiscard]] const std::string& get_kernel_name() const {

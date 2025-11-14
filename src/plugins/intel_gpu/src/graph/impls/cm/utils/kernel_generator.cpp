@@ -11,7 +11,7 @@
 
 namespace ov::intel_gpu::cm {
 
-std::string KernelGenerator::build_code(std::string_view template_name, const JitConstants& jit_constants, const std::string& entry_point) {
+std::string KernelGenerator::build_code(std::string_view template_name, const JitConstants& jit_constants, const std::string& entry_point) const {
     CodeBuilder code;
     code.add_line("\n//====================================================")
         .add_line("// Kernel template: " + std::string(template_name) + " ")

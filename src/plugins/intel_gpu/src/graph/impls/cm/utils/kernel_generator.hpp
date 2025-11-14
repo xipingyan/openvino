@@ -41,7 +41,7 @@ protected:
     // Returns build options that are passed to CM compiler
     [[nodiscard]] virtual std::string get_build_options(const RuntimeParams& params) const;
 
-    [[nodiscard]] static std::string build_code(std::string_view template_name, const JitConstants& jit_constants, const std::string& entry_point);
+    [[nodiscard]] virtual std::string build_code(std::string_view template_name, const JitConstants& jit_constants, const std::string& entry_point) const;
 
 private:
     std::string m_kernel_name;

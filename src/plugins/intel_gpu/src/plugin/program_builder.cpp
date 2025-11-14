@@ -204,6 +204,11 @@ void ProgramBuilder::CreateSingleLayerPrimitive(const std::shared_ptr<ov::Node>&
     bool is_created = false;
     const ov::NodeTypeInfo* op_type_info = &op->get_type_info();
     while (op_type_info != nullptr) {
+        if (op->get_type_name() == std::string("Stub")) {
+            CreateStubCustomOp(*this, op);
+            return;
+        }
+
         auto customLayer = m_custom_layers.find(op->get_type_name());
         if (customLayer != m_custom_layers.end()) {
             CreateCustomOp(*this, op, customLayer->second);
