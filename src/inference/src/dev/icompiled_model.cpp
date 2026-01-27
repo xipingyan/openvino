@@ -159,7 +159,11 @@ void ov::ICompiledModel::release_memory() {
     // nothing to do
 }
 
-void ov::ICompiledModel::release_weights() {
+void ov::ICompiledModel::release_model_weights() {
+    // nothing to do
+}
+
+void ov::ICompiledModel::load_model_weights() {
     // nothing to do
 }
 

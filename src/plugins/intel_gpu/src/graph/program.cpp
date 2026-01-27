@@ -1869,13 +1869,13 @@ void program::save(cldnn::BinaryOutputBuffer& ob) const {
     }
 }
 
-void program::release_weights() {
+void program::release_model_weights() {
     for (auto& node : nodes_map) {
         node.second->release_usm_memory();
     }
 }
 
-void program::load_weights() {}
+void program::load_model_weights() {}
 
 void program::load(cldnn::BinaryInputBuffer& ib,
                    std::shared_ptr<const ov::Model> model_ptr,

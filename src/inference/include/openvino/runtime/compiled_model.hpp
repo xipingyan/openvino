@@ -215,7 +215,8 @@ public:
      * This method forces the Compiled model to release memory allocated for model weights. Just reduces current memory
      * usage to support multiple models inference.
      */
-    void release_weights();
+    void release_model_weights();
+    void load_model_weights();
 
     /**
      * @brief Returns pointer to device-specific shared context

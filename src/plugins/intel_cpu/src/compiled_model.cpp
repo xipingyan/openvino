@@ -410,8 +410,12 @@ void CompiledModel::export_model(std::ostream& modelStream) const {
     serializer << m_model;
 }
 
-void CompiledModel::release_weights() {
-    OPENVINO_ASSERT(false, "Not implemented release_weights() in CPU plugin yet.");
+void CompiledModel::release_model_weights() {
+    OPENVINO_ASSERT(false, "Not implemented release_model_weights() in CPU plugin yet.");
+}
+
+void CompiledModel::load_model_weights() {
+    OPENVINO_ASSERT(false, "Not implemented load_model_weights() in CPU plugin yet.");
 }
 
 void CompiledModel::release_memory() {

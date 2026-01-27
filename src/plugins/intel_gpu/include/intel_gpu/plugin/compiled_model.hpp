@@ -66,7 +66,8 @@ public:
 
     void release_memory() override;
 
-    void release_weights() override;
+    void release_model_weights() override;
+    void load_model_weights() override;
 
 private:
     RemoteContextImpl::Ptr m_context;
