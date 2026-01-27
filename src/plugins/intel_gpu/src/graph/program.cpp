@@ -1902,6 +1902,9 @@ void program::load(cldnn::BinaryInputBuffer& ib,
     size_t num_nodes;
     ib >> num_nodes;
     bool is_valid_data_node;
+    int64_t total_tm = 0;
+    cldnn::data::rrr total_all_tm;
+    // auto t1 = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < num_nodes; ++i) {
         ib >> is_valid_data_node;
         if (!is_valid_data_node)
@@ -1910,10 +1913,25 @@ void program::load(cldnn::BinaryInputBuffer& ib,
         std::shared_ptr<cldnn::primitive> prim;
         ib >> prim;
         if (auto data_prim = dynamic_cast<cldnn::data*>(prim.get())) {
-            data_prim->load_weights(ib, weights_memory);
+            auto tt1 = std::chrono::high_resolution_clock::now();
+            auto alloc_tm = data_prim->load_weights(ib, weights_memory);
+            auto tt2 = std::chrono::high_resolution_clock::now();
+            auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(tt2 - tt1).count();
+            total_tm += diff;
+            total_all_tm.tm1 += alloc_tm.tm1;
+            total_all_tm.tm2 += alloc_tm.tm2;
+            total_all_tm.tm3 += alloc_tm.tm3;
+            total_all_tm.tm4 += alloc_tm.tm4;
         }
         get_or_create(prim);
     }
+    // auto t2 = std::chrono::high_resolution_clock::now();
+    // std::cout << "Time to load data primitives: " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms, diff = " << total_tm
+    //           << " ms" << std::endl;
+    // std::cout << "    total_all_tm.tm1 = " << total_all_tm.tm1 << " ms" << std::endl;
+    // std::cout << "    total_all_tm.tm2 = " << total_all_tm.tm2 << " ms" << std::endl;
+    // std::cout << "    total_all_tm.tm3 = " << total_all_tm.tm3 << " ms" << std::endl;
+    // std::cout << "    total_all_tm.tm4 = " << total_all_tm.tm4 << " ms" << std::endl;
 
     size_t num_output_sharing_mutable_datas;
     ib >> num_output_sharing_mutable_datas;

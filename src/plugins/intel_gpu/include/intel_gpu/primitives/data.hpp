@@ -401,20 +401,39 @@ struct data : public primitive_base<data> {
         primitive_base<data>::load(ib);
     }
 
-    void load_weights(BinaryInputBuffer& ib, std::shared_ptr<WeightsMemory> weights_memory) {
+    struct rrr
+    {
+        int64_t tm1 = 0;
+        int64_t tm2 = 0;
+        int64_t tm3 = 0;
+        int64_t tm4 = 0;
+    };
+    
+    rrr load_weights(BinaryInputBuffer& ib, std::shared_ptr<WeightsMemory> weights_memory) {
+        rrr tm;
+        auto t1 = std::chrono::high_resolution_clock::now();
         layout output_layout = layout();
         ib >> output_layout;
+        auto t2 = std::chrono::high_resolution_clock::now();
+        tm.tm1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
+        auto t3 = std::chrono::high_resolution_clock::now();
         allocation_type _allocation_type = allocation_type::unknown;
         ib >> make_data(&_allocation_type, sizeof(_allocation_type));
 
         size_t data_size = 0;
         ib >> make_data(&data_size, sizeof(size_t));
+        auto t4 = std::chrono::high_resolution_clock::now();
+        tm.tm2 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
 
+        auto t5 = std::chrono::high_resolution_clock::now();
         mem = ib.get_engine().allocate_memory(output_layout, _allocation_type, false);
 
         bool is_weightless_caching = cache_info->load(ib, mem, weights_memory);
+        auto t6 = std::chrono::high_resolution_clock::now();
+        tm.tm3 = std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t5).count();
 
+        auto tt1 = std::chrono::high_resolution_clock::now();
         if (!is_weightless_caching) {
             if (is_alloc_host_accessible(_allocation_type)) {
                 ib >> make_data(mem->buffer_ptr(), data_size);
@@ -464,6 +483,9 @@ struct data : public primitive_base<data> {
                 }
             }
         }
+        auto tt2 = std::chrono::high_resolution_clock::now();
+        tm.tm4 = std::chrono::duration_cast<std::chrono::milliseconds>(tt2 - tt1).count();
+        return tm;
     }
 };
 }  // namespace cldnn
