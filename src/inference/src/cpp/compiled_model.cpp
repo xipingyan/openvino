@@ -149,6 +149,10 @@ void CompiledModel::release_memory() {
     OV_COMPILED_MODEL_CALL_STATEMENT(_impl->release_memory());
 }
 
+void CompiledModel::release_weights() {
+    OV_COMPILED_MODEL_CALL_STATEMENT(_impl->release_weights());
+}
+
 RemoteContext CompiledModel::get_context() const {
     OV_COMPILED_MODEL_CALL_STATEMENT({
         auto ctx = _impl->get_context();

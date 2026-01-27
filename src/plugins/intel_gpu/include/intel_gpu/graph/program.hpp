@@ -289,6 +289,9 @@ public:
     static std::shared_ptr<ov::threading::IStreamsExecutor> make_task_executor(const ExecutionConfig& config);
     static std::shared_ptr<ICompilationContext> make_compilation_context(const ExecutionConfig& config);
 
+    void release_weights();
+    void load_weights();
+
     void save(cldnn::BinaryOutputBuffer& ob) const;
     void load(cldnn::BinaryInputBuffer& ib, std::shared_ptr<const ov::Model> model_ptr = nullptr,
               std::shared_ptr<ov::intel_gpu::GpuWeightlessCacheMap> cache_attr_map = nullptr);

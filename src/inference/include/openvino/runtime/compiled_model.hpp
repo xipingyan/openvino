@@ -210,6 +210,14 @@ public:
     void release_memory();
 
     /**
+     * @brief Release model weights after inference, and need to load weights again before next inference.
+     *
+     * This method forces the Compiled model to release memory allocated for model weights. Just reduces current memory
+     * usage to support multiple models inference.
+     */
+    void release_weights();
+
+    /**
      * @brief Returns pointer to device-specific shared context
      * on a remote accelerator device that was used to create this CompiledModel.
      * @return A context.

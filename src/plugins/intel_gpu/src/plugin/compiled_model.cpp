@@ -307,6 +307,18 @@ std::shared_ptr<ov::ISyncInferRequest> CompiledModel::create_sync_infer_request(
     return std::make_shared<SyncInferRequest>(std::static_pointer_cast<const CompiledModel>(shared_from_this()));
 }
 
+void CompiledModel::release_weights() {
+    for (auto& graph : m_graphs) {
+        if (!graph)
+            continue;
+        auto network = graph->get_network();
+        if (!network)
+            continue;
+        auto program = network->get_program();
+        if (program)
+            program->release_weights();
+    }
+}
 
 void CompiledModel::release_memory() {
 #ifdef ENABLE_ONEDNN_FOR_GPU

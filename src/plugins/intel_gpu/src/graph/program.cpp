@@ -1869,6 +1869,14 @@ void program::save(cldnn::BinaryOutputBuffer& ob) const {
     }
 }
 
+void program::release_weights() {
+    for (auto& node : nodes_map) {
+        node.second->release_usm_memory();
+    }
+}
+
+void program::load_weights() {}
+
 void program::load(cldnn::BinaryInputBuffer& ib,
                    std::shared_ptr<const ov::Model> model_ptr,
                    std::shared_ptr<ov::intel_gpu::GpuWeightlessCacheMap> cache_attr_map) {

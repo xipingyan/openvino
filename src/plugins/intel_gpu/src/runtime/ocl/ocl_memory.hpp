@@ -129,6 +129,10 @@ struct gpu_usm : public lockable_gpu_mem, public memory {
 
     static allocation_type detect_allocation_type(const ocl_engine* engine, const void* mem_ptr);
 
+    void release_usm_memory() {
+        _buffer.freeMem();
+    }
+
 protected:
     cl::UsmMemory _buffer;
     cl::UsmMemory _host_buffer;

@@ -12,6 +12,9 @@
 #include "quantize_inst.h"
 #include "swiglu_inst.h"
 #include "intel_gpu/runtime/debug_configuration.hpp"
+#include "data_inst.h"
+#include "mutable_data_inst.h"
+#include "runtime/ocl/ocl_memory.hpp"
 #ifdef ENABLE_ONEDNN_FOR_GPU
 #include "convolution_inst.h"
 #include "gemm_inst.h"
@@ -528,6 +531,28 @@ bool program_node::is_fused_dep(size_t dep_idx) const {
     }
 
     return false;
+}
+
+void program_node::release_usm_memory() {
+    if (is_type<data>()) {
+        auto& data_node = as<data>();
+        auto mem = data_node.get_attached_memory_ptr();
+        if (mem) {
+            auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
+            if (gpu_usm) {
+                gpu_usm->release_usm_memory();
+            }
+        }
+    } else if (is_type<mutable_data>()) {
+        auto& md_node = as<mutable_data>();
+        auto mem = md_node.get_attached_memory_ptr();
+        if (mem) {
+            auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
+            if (gpu_usm) {
+                gpu_usm->release_usm_memory();
+            }
+        }
+    }
 }
 
 std::set<size_t> program_node::get_lockable_input_ids() const {

@@ -63,6 +63,8 @@ public:
 
     void release_memory() override;
 
+    void release_weights() override;
+
     std::string name() const {
         return m_name;
     }

@@ -485,6 +485,8 @@ public:
     bool can_use(impl_types impl_type) const;
     void select_preferred_formats(impl_types impl_type);
 
+    void release_usm_memory();
+
 protected:
     size_t unique_id = 0;
     static thread_local size_t cur_id;
