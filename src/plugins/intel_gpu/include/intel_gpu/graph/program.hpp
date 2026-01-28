@@ -289,8 +289,8 @@ public:
     static std::shared_ptr<ov::threading::IStreamsExecutor> make_task_executor(const ExecutionConfig& config);
     static std::shared_ptr<ICompilationContext> make_compilation_context(const ExecutionConfig& config);
 
-    void release_model_weights();
-    void load_model_weights();
+    void release_model_weights(std::function<void(const void*, size_t)> write_fn);
+    void load_model_weights(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights);
 
     void save(cldnn::BinaryOutputBuffer& ob) const;
     void load(cldnn::BinaryInputBuffer& ib, std::shared_ptr<const ov::Model> model_ptr = nullptr,

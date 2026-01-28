@@ -16,6 +16,8 @@
 
 namespace cldnn {
 namespace ocl {
+class ocl_engine;
+
 struct lockable_gpu_mem {
     lockable_gpu_mem() :
         _lock_count(0),
@@ -129,8 +131,55 @@ struct gpu_usm : public lockable_gpu_mem, public memory {
 
     static allocation_type detect_allocation_type(const ocl_engine* engine, const void* mem_ptr);
 
-    void release_usm_memory() {
+    void release_usm_memory(std::function<void(const void*, size_t)> write_fn) {
+        size_t bytes_count = 0;
+        _buffer.getMemSize(bytes_count);
+
+        if (bytes_count == 0) {
+            OPENVINO_ASSERT(false, "[GPU] Weights size should not be zero!");
+        } else {
+            auto* ocl_engine = dynamic_cast<cldnn::ocl::ocl_engine*>(_engine);
+            OPENVINO_ASSERT(ocl_engine != nullptr, "[GPU] OCL engine is not available for USM release");
+
+            auto host_mem = ocl_engine->allocate_memory(_layout, allocation_type::usm_host, false);
+            OPENVINO_ASSERT(host_mem != nullptr, "[GPU] Can't allocate host memory for USM release");
+
+            auto host_usm = std::dynamic_pointer_cast<gpu_usm>(host_mem);
+            OPENVINO_ASSERT(host_usm != nullptr, "[GPU] Host memory is not USM for USM release");
+
+            auto& stream = ocl_engine->get_service_stream();
+            host_usm->copy_from(stream, *this, 0, 0, bytes_count, true);
+
+            write_fn(host_usm->buffer_ptr(), bytes_count);
+        }
+
         _buffer.freeMem();
+    }
+
+    void load_usm_memory(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights) {
+        size_t bytes_count = get_weights_size();
+
+        if (bytes_count == 0) {
+            OPENVINO_ASSERT(false, "[GPU] Weights size should not be zero!");
+        } else {
+            OPENVINO_ASSERT(_buffer.get() == nullptr, "[GPU] USM buffer is already allocated!");
+            _buffer.allocateDevice(bytes_count, nullptr);
+
+            auto* ocl_engine = dynamic_cast<cldnn::ocl::ocl_engine*>(_engine);
+            OPENVINO_ASSERT(ocl_engine != nullptr, "[GPU] OCL engine is not available for USM release");
+
+            auto host_mem = ocl_engine->allocate_memory(_layout, allocation_type::usm_host, false);
+            OPENVINO_ASSERT(host_mem != nullptr, "[GPU] Can't allocate host memory for USM release");
+
+            auto host_usm = std::dynamic_pointer_cast<gpu_usm>(host_mem);
+            OPENVINO_ASSERT(host_usm != nullptr, "[GPU] Host memory is not USM for USM release");
+
+            auto& stream = ocl_engine->get_service_stream();
+            read_weights(host_usm->buffer_ptr(), bytes_count);
+
+            this->copy_from(stream, *host_usm, 0, 0, bytes_count, true);
+            host_usm->get_buffer().freeMem();
+        }
     }
 
 protected:

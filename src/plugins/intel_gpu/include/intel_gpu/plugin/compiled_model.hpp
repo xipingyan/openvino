@@ -78,6 +78,8 @@ private:
     std::vector<ov::Output<const ov::Node>> m_outputs;
     std::vector<std::shared_ptr<Graph>> m_graphs;
     bool m_loaded_from_cache;
+    std::string m_cached_weights_path;
+    std::string get_cached_weights_path();
 };
 
 }  // namespace ov::intel_gpu

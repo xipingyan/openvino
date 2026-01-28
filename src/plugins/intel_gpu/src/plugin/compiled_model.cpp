@@ -7,6 +7,8 @@
 #include "openvino/runtime/internal_properties.hpp"
 #include "openvino/runtime/plugin_config.hpp"
 #include "openvino/util/weights_path.hpp"
+#include "openvino/runtime/compilation_context.hpp"
+#include "openvino/util/file_util.hpp"
 
 #include "intel_gpu/graph/serialization/binary_buffer.hpp"
 #include "intel_gpu/runtime/itt.hpp"
@@ -307,7 +309,40 @@ std::shared_ptr<ov::ISyncInferRequest> CompiledModel::create_sync_infer_request(
     return std::make_shared<SyncInferRequest>(std::static_pointer_cast<const CompiledModel>(shared_from_this()));
 }
 
+std::string CompiledModel::get_cached_weights_path() {
+    if (m_cached_weights_path.empty()) {
+        auto cache_dir = m_config.get_property(ov::cache_dir.name()).as<std::string>();
+        auto weights_path = m_config.get_property(ov::weights_path.name()).as<std::string>();
+        OPENVINO_ASSERT(!weights_path.empty(), "Need to set config: weights_path.");
+        auto blobId = ModelCache::compute_hash(weights_path, ov::AnyMap{});
+        m_cached_weights_path = ov::util::path_join({cache_dir, blobId}).string() + ".weights_cache";
+    }
+    return m_cached_weights_path;
+}
+
 void CompiledModel::release_model_weights() {
+    if (m_cached_weights_path.empty()) {
+        m_cached_weights_path = get_cached_weights_path();
+    }
+
+    FILE* fp = nullptr;
+    // std::cout << "m_cached_weights_path = " << m_cached_weights_path << std::endl;
+    if (!ov::util::file_exists(m_cached_weights_path)) {
+        fp = fopen(m_cached_weights_path.c_str(), "wb");
+    }
+
+    static int g_idx = 0;
+    auto write_fn = [&](const void* data, size_t size) {
+        if (fp) {
+            fwrite(&size, sizeof(size_t), 1, fp);
+            fwrite(data, 1, size, fp);
+            if (g_idx++ < 10) {
+                // binary output data:
+                printf("    write first data: %02x\n", *((const uint8_t*)data));
+            }
+        }
+    };
+
     for (auto& graph : m_graphs) {
         if (!graph)
             continue;
@@ -316,11 +351,47 @@ void CompiledModel::release_model_weights() {
             continue;
         auto program = network->get_program();
         if (program)
-            program->release_model_weights();
+            program->release_model_weights(write_fn);
+    }
+
+    if (fp) {
+        fclose(fp);
     }
 }
 
 void CompiledModel::load_model_weights() {
+    if (m_cached_weights_path.empty()) {
+        m_cached_weights_path = get_cached_weights_path();
+    }
+
+    if (!ov::util::file_exists(m_cached_weights_path)) {
+        return;
+    }
+
+    FILE* fp = fopen(m_cached_weights_path.c_str(), "rb");
+
+    auto get_weights_size = [&]() -> size_t {
+        if (fp) {
+            size_t size = 0;
+            auto sz = fread(&size, sizeof(size_t), 1, fp);
+            OPENVINO_ASSERT(sz == 1, "Failed to read weights size from cache file.");
+            return size;
+        }
+        return size_t{0};
+    };
+
+    static int g_idx = 0;
+    auto read_weights = [&](const void* data, size_t size) -> void {
+        if (fp) {
+            auto sz = fread(const_cast<void*>(data), 1, size, fp);
+            OPENVINO_ASSERT(sz == size, "Failed to read weights from cache file.");
+            if (g_idx++ < 10) {
+                // binary input data:
+                printf("    read first data: %02x\n", *((const uint8_t*)data));
+            }
+        }
+    };
+
     for (auto& graph : m_graphs) {
         if (!graph)
             continue;
@@ -329,7 +400,11 @@ void CompiledModel::load_model_weights() {
             continue;
         auto program = network->get_program();
         if (program)
-            program->load_model_weights();
+            program->load_model_weights(get_weights_size, read_weights);
+    }
+
+    if (fp) {
+        fclose(fp);
     }
 }
 
