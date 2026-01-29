@@ -163,7 +163,11 @@ struct gpu_usm : public lockable_gpu_mem, public memory {
             OPENVINO_ASSERT(false, "[GPU] Weights size should not be zero!");
         } else {
             OPENVINO_ASSERT(_buffer.get() == nullptr, "[GPU] USM buffer is already allocated!");
-            _buffer.allocateDevice(bytes_count, nullptr);
+            std::vector<cl_mem_properties_intel> properties = {0};
+            if (_engine->get_enable_large_allocations()) {
+                properties = {CL_MEM_FLAGS, CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL, 0};
+            }
+            _buffer.allocateDevice(bytes_count, &properties[0]);
 
             auto* ocl_engine = dynamic_cast<cldnn::ocl::ocl_engine*>(_engine);
             OPENVINO_ASSERT(ocl_engine != nullptr, "[GPU] OCL engine is not available for USM release");
