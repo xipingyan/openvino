@@ -369,6 +369,7 @@ void CompiledModel::load_model_weights() {
     }
 
     FILE* fp = fopen(m_cached_weights_path.c_str(), "rb");
+    OPENVINO_ASSERT(fp != nullptr, "Failed to open weights cache file for reading: ", m_cached_weights_path);
 
     auto get_weights_size = [&]() -> size_t {
         if (fp) {
@@ -399,13 +400,15 @@ void CompiledModel::load_model_weights() {
         if (!network)
             continue;
         auto program = network->get_program();
-        if (program)
+        if (program) {
             program->load_model_weights(get_weights_size, read_weights);
+            // Weight reload may re-allocate USM buffers, changing underlying pointers.
+            // Cached kernel/oneDNN arguments must be rebound before the next inference.
+            network->reset_arguments();
+        }
     }
 
-    if (fp) {
-        fclose(fp);
-    }
+    fclose(fp);
 }
 
 void CompiledModel::release_memory() {

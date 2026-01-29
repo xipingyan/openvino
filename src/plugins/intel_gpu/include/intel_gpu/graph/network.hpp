@@ -110,6 +110,10 @@ public:
     program::ptr get_program() { return _program; }
     engine& get_engine() const { return _engine; }
 
+    // Mark all cached primitive arguments as stale so they will be re-bound on the next inference.
+    // This is required when underlying memory pointers change (e.g. after releasing and re-loading USM weights).
+    void reset_arguments();
+
     void reset_execution(bool wait = true);
     event::ptr set_input_data(const primitive_id& id, memory::ptr data, bool need_to_check_memory_to_set = true);
     std::vector<event::ptr> set_output_memory(const primitive_id& id, memory::ptr mem, bool is_remote = false);

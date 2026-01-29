@@ -534,45 +534,34 @@ bool program_node::is_fused_dep(size_t dep_idx) const {
 }
 
 void program_node::release_usm_memory(std::function<void(const void*, size_t)> write_fn) {
+    // Only release constant weights.
+    // Releasing/restoring mutable_data would persist model state (e.g. KV-cache) across runs and make outputs change.
     if (is_type<data>()) {
         auto& data_node = as<data>();
+        if (!data_node.is_constant())
+            return;
         auto mem = data_node.get_attached_memory_ptr();
-        if (mem) {
-            auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
-            if (gpu_usm) {
-                gpu_usm->release_usm_memory(write_fn);
-            }
-        }
-    } else if (is_type<mutable_data>()) {
-        auto& md_node = as<mutable_data>();
-        auto mem = md_node.get_attached_memory_ptr();
-        if (mem) {
-            auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
-            if (gpu_usm) {
-                gpu_usm->release_usm_memory(write_fn);
-            }
+        if (!mem)
+            return;
+        auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
+        if (gpu_usm) {
+            gpu_usm->release_usm_memory(write_fn);
         }
     }
 }
 
 void program_node::load_usm_memory(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights) {
+    // Only load constant weights.
     if (is_type<data>()) {
         auto& data_node = as<data>();
+        if (!data_node.is_constant())
+            return;
         auto mem = data_node.get_attached_memory_ptr();
-        if (mem) {
-            auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
-            if (gpu_usm) {
-                gpu_usm->load_usm_memory(get_weights_size, read_weights);
-            }
-        }
-    } else if (is_type<mutable_data>()) {
-        auto& md_node = as<mutable_data>();
-        auto mem = md_node.get_attached_memory_ptr();
-        if (mem) {
-            auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
-            if (gpu_usm) {
-                gpu_usm->load_usm_memory(get_weights_size, read_weights);
-            }
+        if (!mem)
+            return;
+        auto gpu_usm = std::dynamic_pointer_cast<ocl::gpu_usm>(mem);
+        if (gpu_usm) {
+            gpu_usm->load_usm_memory(get_weights_size, read_weights);
         }
     }
 }
