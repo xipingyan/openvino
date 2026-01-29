@@ -331,15 +331,10 @@ void CompiledModel::release_model_weights() {
         fp = fopen(m_cached_weights_path.c_str(), "wb");
     }
 
-    static int g_idx = 0;
     auto write_fn = [&](const void* data, size_t size) {
         if (fp) {
             fwrite(&size, sizeof(size_t), 1, fp);
             fwrite(data, 1, size, fp);
-            if (g_idx++ < 10) {
-                // binary output data:
-                printf("    write first data: %02x\n", *((const uint8_t*)data));
-            }
         }
     };
 
@@ -381,15 +376,10 @@ void CompiledModel::load_model_weights() {
         return size_t{0};
     };
 
-    static int g_idx = 0;
     auto read_weights = [&](const void* data, size_t size) -> void {
         if (fp) {
             auto sz = fread(const_cast<void*>(data), 1, size, fp);
             OPENVINO_ASSERT(sz == size, "Failed to read weights from cache file.");
-            if (g_idx++ < 10) {
-                // binary input data:
-                printf("    read first data: %02x\n", *((const uint8_t*)data));
-            }
         }
     };
 

@@ -157,42 +157,38 @@ struct gpu_usm : public lockable_gpu_mem, public memory {
     }
 
     void load_usm_memory(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights) {
+        if (_buffer.get())
+            return;
+
         const size_t stored_bytes = get_weights_size();
         const size_t expected_bytes = _bytes_count;
 
         OPENVINO_ASSERT(expected_bytes != 0, "[GPU] Weights size should not be zero!");
-        OPENVINO_ASSERT(stored_bytes == expected_bytes,
-                        "[GPU] Weights size mismatch while loading: stored=",
-                        stored_bytes,
-                        " expected=",
-                        expected_bytes);
+        OPENVINO_ASSERT(stored_bytes == expected_bytes, "[GPU] Weights size mismatch while loading: stored=", stored_bytes, " expected=", expected_bytes);
 
-        {
-            OPENVINO_ASSERT(_buffer.get() == nullptr, "[GPU] USM buffer is already allocated!");
-            std::vector<cl_mem_properties_intel> properties = {0};
-            if (_engine->get_enable_large_allocations()) {
-                properties = {CL_MEM_FLAGS, CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL, 0};
-            }
-            _buffer.allocateDevice(expected_bytes, &properties[0]);
-
-            // Refresh allocation tracking because the underlying pointer has changed.
-            m_mem_tracker = std::make_shared<MemoryTracker>(_engine, _buffer.get(), expected_bytes, allocation_type::usm_device);
-
-            auto* ocl_engine = dynamic_cast<cldnn::ocl::ocl_engine*>(_engine);
-            OPENVINO_ASSERT(ocl_engine != nullptr, "[GPU] OCL engine is not available for USM release");
-
-            auto host_mem = ocl_engine->allocate_memory(_layout, allocation_type::usm_host, false);
-            OPENVINO_ASSERT(host_mem != nullptr, "[GPU] Can't allocate host memory for USM release");
-
-            auto host_usm = std::dynamic_pointer_cast<gpu_usm>(host_mem);
-            OPENVINO_ASSERT(host_usm != nullptr, "[GPU] Host memory is not USM for USM release");
-
-            auto& stream = ocl_engine->get_service_stream();
-            read_weights(host_usm->buffer_ptr(), expected_bytes);
-
-            this->copy_from(stream, *host_usm, 0, 0, expected_bytes, true);
-            host_usm->get_buffer().freeMem();
+        std::vector<cl_mem_properties_intel> properties = {0};
+        if (_engine->get_enable_large_allocations()) {
+            properties = {CL_MEM_FLAGS, CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL, 0};
         }
+        _buffer.allocateDevice(expected_bytes, &properties[0]);
+
+        // Refresh allocation tracking because the underlying pointer has changed.
+        m_mem_tracker = std::make_shared<MemoryTracker>(_engine, _buffer.get(), expected_bytes, allocation_type::usm_device);
+
+        auto* ocl_engine = dynamic_cast<cldnn::ocl::ocl_engine*>(_engine);
+        OPENVINO_ASSERT(ocl_engine != nullptr, "[GPU] OCL engine is not available for USM release");
+
+        auto host_mem = ocl_engine->allocate_memory(_layout, allocation_type::usm_host, false);
+        OPENVINO_ASSERT(host_mem != nullptr, "[GPU] Can't allocate host memory for USM release");
+
+        auto host_usm = std::dynamic_pointer_cast<gpu_usm>(host_mem);
+        OPENVINO_ASSERT(host_usm != nullptr, "[GPU] Host memory is not USM for USM release");
+
+        auto& stream = ocl_engine->get_service_stream();
+        read_weights(host_usm->buffer_ptr(), expected_bytes);
+
+        this->copy_from(stream, *host_usm, 0, 0, expected_bytes, true);
+        host_usm->get_buffer().freeMem();
     }
 
 protected:
