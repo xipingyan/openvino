@@ -310,6 +310,20 @@ void network::set_arguments() {
     _reset_arguments = false;
 }
 
+void network::reset_arguments() {
+    _reset_arguments = true;
+
+    // Dynamic primitives update kernel args in primitive_inst::prepare_primitive() only when it detects
+    // IMPL_CHANGED/MEMORY_CHANGED on itself or its dependencies. After external events like
+    // releasing/re-loading USM weights, constant/data nodes may not execute, so dependent dynamic
+    // primitives won't observe MEMORY_CHANGED and may keep stale kernel argument pointers.
+    //
+    // Marking MEMORY_CHANGED forces dynamic primitives to re-bind arguments on the next inference.
+    for (auto const& prim : _exec_order) {
+        prim->set_flag(ExecutionFlags::MEMORY_CHANGED, true);
+    }
+}
+
 void network::reset_execution(bool wait) {
     if (wait) {
         get_stream().finish();

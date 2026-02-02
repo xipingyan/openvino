@@ -1869,6 +1869,18 @@ void program::save(cldnn::BinaryOutputBuffer& ob) const {
     }
 }
 
+void program::release_model_weights(std::function<void(const void*, size_t)> write_fn) {
+    for (auto& node : nodes_map) {
+        node.second->release_usm_memory(write_fn);
+    }
+}
+
+void program::load_model_weights(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights) {
+    for (auto& node : nodes_map) {
+        node.second->load_usm_memory(get_weights_size, read_weights);
+    }
+}
+
 void program::load(cldnn::BinaryInputBuffer& ib,
                    std::shared_ptr<const ov::Model> model_ptr,
                    std::shared_ptr<ov::intel_gpu::GpuWeightlessCacheMap> cache_attr_map) {

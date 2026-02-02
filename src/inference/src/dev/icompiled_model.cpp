@@ -159,6 +159,14 @@ void ov::ICompiledModel::release_memory() {
     // nothing to do
 }
 
+void ov::ICompiledModel::release_model_weights() {
+    // nothing to do
+}
+
+void ov::ICompiledModel::load_model_weights() {
+    // nothing to do
+}
+
 ov::ICompiledModel::~ICompiledModel() {
 #if defined(OPENVINO_GNU_LIBC) && !defined(__ANDROID__)
     // Linux memory margent doesn't return system memory immediate after release.

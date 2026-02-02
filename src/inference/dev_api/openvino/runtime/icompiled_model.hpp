@@ -140,6 +140,13 @@ public:
      */
     virtual void release_memory();
 
+    /**
+     * @brief Release model weights after inference, and need to load weights again before next inference.
+     *
+     */
+    virtual void release_model_weights();
+    virtual void load_model_weights();
+
     virtual ~ICompiledModel();
 
 private:

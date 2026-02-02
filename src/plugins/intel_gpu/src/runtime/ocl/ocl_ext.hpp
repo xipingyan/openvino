@@ -1001,6 +1001,12 @@ public:
         _usm_pointer->memFree();
     }
 
+    void getMemSize(size_t& mem_size) const {
+        if (!_usm_pointer)
+            throw std::runtime_error("[CL ext] Can not get mem alloc info of empty UsmHolder");
+        mem_size = _usmHelper.get_usm_allocation_size(_usm_pointer->ptr());
+    }
+
     virtual ~UsmMemory() = default;
 
 protected:

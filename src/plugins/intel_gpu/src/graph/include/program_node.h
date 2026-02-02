@@ -485,6 +485,9 @@ public:
     bool can_use(impl_types impl_type) const;
     void select_preferred_formats(impl_types impl_type);
 
+    void release_usm_memory(std::function<void(const void*, size_t)> write_fn);
+    void load_usm_memory(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights);
+
 protected:
     size_t unique_id = 0;
     static thread_local size_t cur_id;
