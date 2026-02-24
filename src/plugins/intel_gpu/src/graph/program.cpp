@@ -1873,12 +1873,14 @@ void program::release_model_weights(std::function<void(const void*, size_t)> wri
     for (auto& node : nodes_map) {
         node.second->release_usm_memory(write_fn);
     }
+    get_stream().finish();
 }
 
 void program::load_model_weights(std::function<size_t()> get_weights_size, std::function<void(const void*, size_t)> read_weights) {
     for (auto& node : nodes_map) {
         node.second->load_usm_memory(get_weights_size, read_weights);
     }
+    get_stream().finish();
 }
 
 void program::load(cldnn::BinaryInputBuffer& ib,
